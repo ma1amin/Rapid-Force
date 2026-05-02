@@ -9,22 +9,38 @@ import {
   useListIncidents,
 } from "@workspace/api-client-react";
 import {
-  Bot,
   Send,
   X,
-  Loader2,
   AlertTriangle,
   Shield,
   Cpu,
   RotateCcw,
   Copy,
   Check,
-  ChevronDown,
   Zap,
   FileCode2,
   Siren,
 } from "lucide-react";
+import Lottie from "lottie-react";
+import animationData from "@/assets/copilot-animation.json";
 import { cn } from "@/lib/utils";
+
+function CopilotIcon({ size = 28, className = "" }: { size?: number; className?: string }) {
+  return (
+    <div
+      className={className}
+      style={{
+        width: size,
+        height: size,
+        filter:
+          "brightness(0) saturate(100%) invert(76%) sepia(97%) saturate(400%) hue-rotate(115deg) brightness(105%)",
+        flexShrink: 0,
+      }}
+    >
+      <Lottie animationData={animationData} loop autoplay style={{ width: "100%", height: "100%" }} />
+    </div>
+  );
+}
 
 interface Message {
   role: "user" | "assistant";
@@ -36,13 +52,16 @@ const SYSTEM_PROMPT = `You are the Rapid Force AI Copilot — an autonomous cybe
 
 You follow the Rapid Force principles: AI First, Detection as Code, Automation by Default, Zero Trust Design, Intelligence-Driven Response.
 
-Formatting rules:
-- Use **bold** for important terms, threat names, and key findings
-- Use \`code\` for technical values, IDs, ATT&CK techniques, and commands
-- Use bullet points (lines starting with - ) for lists
-- Keep responses concise, tactical, and actionable
-- Reference MITRE ATT&CK techniques when relevant (e.g. \`T1003.001\`)
-- For playbooks, use numbered steps`;
+CRITICAL RESPONSE RULES — follow these strictly:
+- Be extremely concise. Max 5-7 sentences for simple questions. Max 10 bullet points for lists.
+- Never repeat the question back or add preamble like "Sure!" or "Great question."
+- Start directly with the answer or finding.
+- Use **bold** for threat names, key findings, and severity labels.
+- Use \`code\` for ATT&CK IDs, IOCs, commands, and technical identifiers.
+- Use bullet points (- ) for lists; numbered steps for playbooks.
+- Reference MITRE ATT&CK techniques inline (e.g. \`T1003.001 — Credential Dumping\`).
+- If context data is missing, say so in one sentence and give general guidance.
+- No filler phrases, no lengthy disclaimers, no summaries at the end.`;
 
 const SUGGESTED = [
   { icon: "⚠", text: "Analyze the current critical threats" },
@@ -318,9 +337,9 @@ ${activeMissions.slice(0, 5).map((m) => `- [${m.priority.toUpperCase()}] ${m.tit
       {/* Header */}
       <div className="flex items-center justify-between border-b border-border px-4 py-3 shrink-0 bg-card">
         <div className="flex items-center gap-2.5">
-          <div className="relative flex h-7 w-7 items-center justify-center bg-primary/20 border border-primary/40">
-            <Bot className="h-4 w-4 text-primary" />
-            <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-primary animate-pulse" />
+          <div className="relative flex h-8 w-8 items-center justify-center bg-primary/20 border border-primary/40 overflow-hidden">
+            <CopilotIcon size={32} />
+            <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-primary animate-pulse z-10" />
           </div>
           <div>
             <div className="text-sm font-bold tracking-wide">AI COPILOT</div>
@@ -378,8 +397,8 @@ ${activeMissions.slice(0, 5).map((m) => `- [${m.priority.toUpperCase()}] ${m.tit
           <div className="space-y-5 pt-2">
             {/* Welcome */}
             <div className="text-center py-4">
-              <div className="flex h-12 w-12 mx-auto items-center justify-center bg-primary/10 border border-primary/30 mb-3">
-                <Bot className="h-6 w-6 text-primary" />
+              <div className="flex h-14 w-14 mx-auto items-center justify-center bg-primary/10 border border-primary/30 mb-3 overflow-hidden">
+                <CopilotIcon size={56} />
               </div>
               <div className="text-sm font-bold tracking-wide mb-1">RAPID FORCE AI ANALYST</div>
               <div className="text-xs font-mono text-muted-foreground">
