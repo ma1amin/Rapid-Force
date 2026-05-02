@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "wouter";
-import { Search, CheckCircle2, XCircle, RefreshCcw, Loader2, ChevronRight } from "lucide-react";
+import { Search, CheckCircle2, XCircle, RefreshCcw, Loader2, Building2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface AdminUser {
@@ -30,6 +30,9 @@ const TIER_STYLE: Record<string, string> = {
 };
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+// Column layout: [user | role | organization | tier | last login | actions]
+const COLS = "grid-cols-[1fr_90px_180px_110px_100px_130px]";
 
 export default function AdminUsers() {
   const [users, setUsers] = useState<AdminUser[]>([]);
@@ -119,13 +122,14 @@ export default function AdminUsers() {
 
       {/* Table */}
       <div className="bg-card border border-border overflow-hidden">
-        <div className="grid grid-cols-[1fr_auto_auto_auto_auto_auto] gap-4 px-5 py-2.5 border-b border-border text-[10px] font-mono text-muted-foreground tracking-widest">
-          <span>USER</span>
-          <span>ROLE</span>
-          <span>ORGANIZATION</span>
-          <span>TIER</span>
-          <span>LAST LOGIN</span>
-          <span>ACTIONS</span>
+        {/* Header row */}
+        <div className={cn("grid gap-3 px-4 py-2.5 border-b border-border items-center", COLS)}>
+          <span className="text-[10px] font-mono text-muted-foreground tracking-widest">USER</span>
+          <span className="text-[10px] font-mono text-muted-foreground tracking-widest">ROLE</span>
+          <span className="text-[10px] font-mono text-muted-foreground tracking-widest">ORGANIZATION</span>
+          <span className="text-[10px] font-mono text-muted-foreground tracking-widest">TIER</span>
+          <span className="text-[10px] font-mono text-muted-foreground tracking-widest">LAST LOGIN</span>
+          <span className="text-[10px] font-mono text-muted-foreground tracking-widest">ACTIONS</span>
         </div>
 
         {loading ? (
@@ -144,12 +148,13 @@ export default function AdminUsers() {
               <div
                 key={u.id}
                 className={cn(
-                  "grid grid-cols-[1fr_auto_auto_auto_auto_auto] gap-4 items-center px-5 py-3.5",
+                  "grid gap-3 items-center px-4 py-3",
+                  COLS,
                   !u.isActive && "opacity-50"
                 )}
               >
                 {/* User */}
-                <div className="flex items-center gap-3 min-w-0">
+                <div className="flex items-center gap-2.5 min-w-0">
                   <div className="flex h-7 w-7 items-center justify-center bg-primary/10 border border-primary/20 text-xs font-bold text-primary shrink-0">
                     {u.displayName[0]?.toUpperCase() ?? "?"}
                   </div>
@@ -160,44 +165,44 @@ export default function AdminUsers() {
                 </div>
 
                 {/* Role */}
-                <span className={cn("text-xs font-mono border px-2 py-0.5", ROLE_STYLE[u.role])}>
+                <span className={cn("text-xs font-mono border px-2 py-0.5 w-fit", ROLE_STYLE[u.role])}>
                   {u.role.toUpperCase()}
                 </span>
 
-                {/* Org */}
+                {/* Organization — clickable link to tenant detail */}
                 {u.tenantId ? (
                   <Link
                     href={`/admin/tenants/${u.tenantId}`}
-                    className="flex items-center gap-1 text-xs font-mono text-muted-foreground hover:text-orange-300 transition-colors max-w-[140px] truncate"
+                    className="flex items-center gap-1.5 text-xs font-mono text-muted-foreground hover:text-orange-300 transition-colors group min-w-0"
                   >
-                    {u.tenantName ?? "—"}
-                    <ChevronRight className="h-3 w-3 shrink-0" />
+                    <Building2 className="h-3.5 w-3.5 shrink-0 group-hover:text-orange-400 transition-colors" />
+                    <span className="truncate">{u.tenantName ?? "—"}</span>
                   </Link>
                 ) : (
                   <span className="text-xs font-mono text-muted-foreground">—</span>
                 )}
 
                 {/* Tier */}
-                <span className={cn("text-xs font-mono border px-2 py-0.5", TIER_STYLE[u.tenantTier ?? "trial"])}>
+                <span className={cn("text-xs font-mono border px-2 py-0.5 w-fit", TIER_STYLE[u.tenantTier ?? "trial"])}>
                   {(u.tenantTier ?? "—").toUpperCase()}
                 </span>
 
                 {/* Last login */}
-                <span className="text-xs font-mono text-muted-foreground whitespace-nowrap">
+                <span className="text-xs font-mono text-muted-foreground">
                   {u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleDateString() : "Never"}
                 </span>
 
                 {/* Actions */}
                 <div className="flex items-center gap-2">
                   {u.isActive
-                    ? <CheckCircle2 className="h-4 w-4 text-primary" />
-                    : <XCircle className="h-4 w-4 text-destructive" />
+                    ? <CheckCircle2 className="h-4 w-4 text-primary shrink-0" />
+                    : <XCircle className="h-4 w-4 text-destructive shrink-0" />
                   }
                   <button
                     onClick={() => toggleActive(u)}
                     disabled={togglingId === u.id}
                     className={cn(
-                      "text-xs font-mono border px-2 py-1 transition-colors disabled:opacity-40 flex items-center gap-1",
+                      "text-xs font-mono border px-2 py-1 transition-colors disabled:opacity-40 flex items-center gap-1 whitespace-nowrap",
                       u.isActive
                         ? "text-destructive border-destructive/40 hover:bg-destructive/10"
                         : "text-primary border-primary/40 hover:bg-primary/10"
