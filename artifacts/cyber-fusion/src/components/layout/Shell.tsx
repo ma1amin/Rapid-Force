@@ -3,7 +3,8 @@ import Sidebar from "./Sidebar";
 import Footer from "./Footer";
 import GlobalSearch from "@/components/search/GlobalSearch";
 import CopilotPanel from "@/components/copilot/CopilotPanel";
-import { Search, Sun, Moon, Bot, X } from "lucide-react";
+import CopilotFAB from "@/components/copilot/CopilotFAB";
+import { Search, Sun, Moon } from "lucide-react";
 import { useTheme } from "@/hooks/useTheme";
 import { useEffect } from "react";
 import { useListThreats } from "@workspace/api-client-react";
@@ -97,37 +98,13 @@ export default function Shell({ children }: { children: React.ReactNode }) {
         </div>
       </div>
 
-      {/* Floating AI Copilot button */}
-      {!copilotOpen && (
-        <button
-          onClick={() => setCopilotOpen(true)}
-          className={cn(
-            "fixed bottom-6 right-6 z-50 flex items-center gap-2.5 px-4 py-3 font-mono text-xs font-bold tracking-wider transition-all duration-200 shadow-lg",
-            "bg-primary text-primary-foreground hover:opacity-90",
-            criticalThreats > 0 && "animate-pulse"
-          )}
-          title="Open AI Copilot (⌘/)"
-        >
-          <Bot className="h-4 w-4 shrink-0" />
-          AI COPILOT
-          {activeThreats > 0 && (
-            <span className="flex h-4 w-4 items-center justify-center bg-destructive text-destructive-foreground text-[10px] rounded-full">
-              {activeThreats > 9 ? "9+" : activeThreats}
-            </span>
-          )}
-        </button>
-      )}
-
-      {/* Close floating button when panel is open */}
-      {copilotOpen && (
-        <button
-          onClick={() => setCopilotOpen(false)}
-          className="fixed bottom-6 right-6 z-50 flex h-10 w-10 items-center justify-center bg-muted border border-border text-muted-foreground hover:text-foreground hover:border-primary transition-colors shadow-lg"
-          title="Close Copilot"
-        >
-          <X className="h-4 w-4" />
-        </button>
-      )}
+      {/* Animated floating copilot button */}
+      <CopilotFAB
+        isOpen={copilotOpen}
+        onToggle={() => setCopilotOpen((v) => !v)}
+        activeThreats={activeThreats}
+        criticalThreats={criticalThreats}
+      />
 
       {searchOpen && <GlobalSearch onClose={() => setSearchOpen(false)} />}
     </div>
