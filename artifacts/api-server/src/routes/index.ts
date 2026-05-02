@@ -8,9 +8,13 @@ import activityRouter from "./activity";
 import detectionsRouter from "./detections";
 import incidentsRouter from "./incidents";
 import copilotRouter from "./copilot";
+import authRouter from "./auth";
+import licensesRouter from "./licenses";
 
 const router: IRouter = Router();
 
+router.use(authRouter);
+router.use(licensesRouter);
 router.use(healthRouter);
 router.use(agentsRouter);
 router.use(sprintsRouter);

@@ -5,3 +5,5 @@ export * from "./threats";
 export * from "./activity";
 export * from "./detections";
 export * from "./incidents";
+export * from "./tenants";
+export * from "./users";
