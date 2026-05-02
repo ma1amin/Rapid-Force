@@ -33,6 +33,7 @@ import AdminVouchers from "@/pages/admin/AdminVouchers";
 import AdminAnalytics from "@/pages/admin/AdminAnalytics";
 import AdminAnnouncements from "@/pages/admin/AdminAnnouncements";
 import AdminLicenseAdmin from "@/pages/admin/AdminLicenseAdmin";
+import Compliance from "@/pages/Compliance";
 import { type ReactNode, useEffect } from "react";
 
 const queryClient = new QueryClient({
@@ -100,6 +101,7 @@ function Router() {
                 <Route path="/activity"><ModuleGate moduleKey="event_log"><Activity /></ModuleGate></Route>
                 <Route path="/adversarial"><ModuleGate moduleKey="adversarial_sim"><AdversarialSim /></ModuleGate></Route>
                 <Route path="/hunting"><ModuleGate moduleKey="threat_hunting"><ThreatHunting /></ModuleGate></Route>
+                <Route path="/compliance"><ModuleGate moduleKey="compliance"><Compliance /></ModuleGate></Route>
                 <Route component={NotFound} />
               </Switch>
             </Shell>

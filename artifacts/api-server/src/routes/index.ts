@@ -13,6 +13,7 @@ import licensesRouter from "./licenses";
 import adminRouter from "./admin";
 import vouchersRouter from "./vouchers";
 import announcementsRouter from "./announcements";
+import complianceRouter from "./compliance";
 
 const router: IRouter = Router();
 
@@ -30,5 +31,6 @@ router.use(activityRouter);
 router.use(detectionsRouter);
 router.use(incidentsRouter);
 router.use(copilotRouter);
+router.use(complianceRouter);
 
 export default router;

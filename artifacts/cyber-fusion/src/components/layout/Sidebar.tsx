@@ -2,6 +2,7 @@ import { Link, useLocation } from "wouter";
 import {
   TerminalSquare, Cpu, Zap, Target, ShieldAlert, ActivitySquare,
   FileCode2, Siren, Bot, Crosshair, Search, Lock, LogOut, ChevronDown,
+  ClipboardCheck, BookOpen, BarChart3, Radar, LayoutDashboard,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useLicenses, type ModuleKey } from "@/hooks/useLicenses";
@@ -16,16 +17,21 @@ interface NavItem {
 }
 
 const navigation: NavItem[] = [
-  { name: "Command Center",  href: "/",             icon: TerminalSquare, moduleKey: "command_center"  },
-  { name: "Agent Fleet",     href: "/agents",       icon: Cpu,            moduleKey: "agent_fleet"     },
-  { name: "Sprint Ops",      href: "/sprints",      icon: Zap,            moduleKey: "sprint_ops"      },
-  { name: "Missions",        href: "/missions",     icon: Target,         moduleKey: "missions"        },
-  { name: "Threat Intel",    href: "/threats",      icon: ShieldAlert,    moduleKey: "threat_intel"    },
-  { name: "Detection Eng.",  href: "/detections",   icon: FileCode2,      moduleKey: "detection_eng"   },
-  { name: "Incidents",       href: "/incidents",    icon: Siren,          moduleKey: "incidents"       },
-  { name: "Event Log",       href: "/activity",     icon: ActivitySquare, moduleKey: "event_log"       },
-  { name: "Adversarial Sim", href: "/adversarial",  icon: Crosshair,      moduleKey: "adversarial_sim" },
-  { name: "Threat Hunting",  href: "/hunting",      icon: Search,         moduleKey: "threat_hunting"  },
+  { name: "Command Center",       href: "/",              icon: TerminalSquare, moduleKey: "command_center"       },
+  { name: "Agent Fleet",          href: "/agents",        icon: Cpu,            moduleKey: "agent_fleet"          },
+  { name: "Sprint Ops",           href: "/sprints",       icon: Zap,            moduleKey: "sprint_ops"           },
+  { name: "Missions",             href: "/missions",      icon: Target,         moduleKey: "missions"             },
+  { name: "Threat Intel",         href: "/threats",       icon: ShieldAlert,    moduleKey: "threat_intel"         },
+  { name: "Detection Eng.",       href: "/detections",    icon: FileCode2,      moduleKey: "detection_eng"        },
+  { name: "Incidents",            href: "/incidents",     icon: Siren,          moduleKey: "incidents"            },
+  { name: "Event Log",            href: "/activity",      icon: ActivitySquare, moduleKey: "event_log"            },
+  { name: "Adversarial Sim",      href: "/adversarial",   icon: Crosshair,      moduleKey: "adversarial_sim"      },
+  { name: "Threat Hunting",       href: "/hunting",       icon: Search,         moduleKey: "threat_hunting"       },
+  { name: "Compliance & GRC",     href: "/compliance",    icon: ClipboardCheck, moduleKey: "compliance"           },
+  { name: "Playbooks",            href: "/playbooks",     icon: BookOpen,       moduleKey: "playbooks"            },
+  { name: "Behavioral Analytics", href: "/behavioral",    icon: BarChart3,      moduleKey: "behavioral_analytics" },
+  { name: "Executive Dashboard",  href: "/executive",     icon: LayoutDashboard, moduleKey: "executive"            },
+  { name: "Predictive EWS",       href: "/early-warning", icon: Radar,          moduleKey: "early_warning"        },
 ];
 
 interface Props {

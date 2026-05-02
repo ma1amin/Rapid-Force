@@ -9,13 +9,15 @@ const router = Router();
 const MODULES = [
   "command_center", "agent_fleet", "sprint_ops", "missions",
   "threat_intel", "detection_eng", "incidents", "event_log",
-  "adversarial_sim", "threat_hunting", "ai_copilot", "license_admin",
+  "adversarial_sim", "threat_hunting", "ai_copilot",
+  "compliance", "playbooks", "behavioral_analytics", "executive", "early_warning",
+  "license_admin",
 ];
 
 const TIER_MODULES: Record<string, string[]> = {
   trial:        ["command_center", "agent_fleet", "event_log", "ai_copilot", "threat_intel"],
   starter:      ["command_center", "agent_fleet", "event_log", "ai_copilot", "threat_intel", "sprint_ops", "missions"],
-  professional: ["command_center", "agent_fleet", "event_log", "ai_copilot", "threat_intel", "sprint_ops", "missions", "detection_eng", "incidents", "adversarial_sim", "threat_hunting"],
+  professional: ["command_center", "agent_fleet", "event_log", "ai_copilot", "threat_intel", "sprint_ops", "missions", "detection_eng", "incidents", "adversarial_sim", "threat_hunting", "playbooks"],
   enterprise:   MODULES,
 };
 

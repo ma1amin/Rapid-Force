@@ -7,18 +7,23 @@ export interface ModuleLicense {
 }
 
 export const ALL_MODULES = [
-  { key: "command_center",    label: "Command Center",     minTier: "trial"        },
-  { key: "agent_fleet",       label: "Agent Fleet",        minTier: "trial"        },
-  { key: "sprint_ops",        label: "Sprint Ops",         minTier: "starter"      },
-  { key: "missions",          label: "Missions",           minTier: "starter"      },
-  { key: "threat_intel",      label: "Threat Intel",       minTier: "starter"      },
-  { key: "detection_eng",     label: "Detection Eng.",     minTier: "professional" },
-  { key: "incidents",         label: "Incidents",          minTier: "professional" },
-  { key: "event_log",         label: "Event Log",          minTier: "trial"        },
-  { key: "adversarial_sim",   label: "Adversarial Sim",    minTier: "professional" },
-  { key: "threat_hunting",    label: "Threat Hunting",     minTier: "professional" },
-  { key: "ai_copilot",        label: "AI Copilot",         minTier: "starter"      },
-  { key: "license_admin",     label: "License Admin",      minTier: "enterprise"   },
+  { key: "command_center",        label: "Command Center",        minTier: "trial"        },
+  { key: "agent_fleet",           label: "Agent Fleet",           minTier: "trial"        },
+  { key: "sprint_ops",            label: "Sprint Ops",            minTier: "starter"      },
+  { key: "missions",              label: "Missions",              minTier: "starter"      },
+  { key: "threat_intel",          label: "Threat Intel",          minTier: "starter"      },
+  { key: "detection_eng",         label: "Detection Eng.",        minTier: "professional" },
+  { key: "incidents",             label: "Incidents",             minTier: "professional" },
+  { key: "event_log",             label: "Event Log",             minTier: "trial"        },
+  { key: "adversarial_sim",       label: "Adversarial Sim",       minTier: "professional" },
+  { key: "threat_hunting",        label: "Threat Hunting",        minTier: "professional" },
+  { key: "ai_copilot",            label: "AI Copilot",            minTier: "starter"      },
+  { key: "compliance",            label: "Compliance & GRC",      minTier: "enterprise"   },
+  { key: "playbooks",             label: "Automated Playbooks",   minTier: "professional" },
+  { key: "behavioral_analytics",  label: "Behavioral Analytics",  minTier: "enterprise"   },
+  { key: "executive",             label: "Executive Dashboard",   minTier: "enterprise"   },
+  { key: "early_warning",         label: "Predictive EWS",        minTier: "enterprise"   },
+  { key: "license_admin",         label: "License Admin",         minTier: "enterprise"   },
 ] as const;
 
 export type ModuleKey = typeof ALL_MODULES[number]["key"];
