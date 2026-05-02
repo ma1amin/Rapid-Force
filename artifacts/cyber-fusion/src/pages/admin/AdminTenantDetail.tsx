@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link, useParams, useLocation } from "wouter";
 import {
-  Building2, ChevronLeft, Shield, XCircle, Lock, CheckCircle2,
-  KeyRound, Loader2, Users, Copy, Check, AlertTriangle, EyeOff,
+  ChevronLeft, Shield, XCircle, Lock, CheckCircle2, KeyRound, Loader2,
+  Users, Copy, Check, AlertTriangle, EyeOff, StickyNote, Plus, Trash2, RefreshCcw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -15,9 +15,10 @@ interface Tenant {
 interface TenantUser {
   id: number; email: string; displayName: string;
   role: "admin" | "analyst" | "viewer";
-  isActive: boolean; lastLoginAt: string | null; createdAt: string;
+  isActive: boolean; mustResetPassword: boolean; lastLoginAt: string | null; createdAt: string;
 }
 interface Module { moduleKey: string; enabled: boolean }
+interface AdminNote { id: number; note: string; createdByEmail: string; createdAt: string }
 
 const TIER_STYLE: Record<string, string> = {
   trial: "text-muted-foreground border-border",
@@ -51,6 +52,7 @@ export default function AdminTenantDetail() {
   const id = params.id;
   const [, navigate] = useLocation();
   const [data, setData] = useState<{ tenant: Tenant; users: TenantUser[]; modules: Module[] } | null>(null);
+  const [notes, setNotes] = useState<AdminNote[]>([]);
   const [loading, setLoading] = useState(true);
   const [newTier, setNewTier] = useState<string>("");
   const [savingTier, setSavingTier] = useState(false);
@@ -60,18 +62,24 @@ export default function AdminTenantDetail() {
   const [impersonateLoading, setImpersonateLoading] = useState(false);
   const [trialEndDate, setTrialEndDate] = useState("");
   const [savingTrial, setSavingTrial] = useState(false);
+  const [newNote, setNewNote] = useState("");
+  const [savingNote, setSavingNote] = useState(false);
+  const [deletingNote, setDeletingNote] = useState<number | null>(null);
+  const [forceResetId, setForceResetId] = useState<number | null>(null);
 
   const fetchData = async () => {
     setLoading(true);
     try {
-      const r = await fetch(`${BASE}/api/admin/tenants/${id}`, { credentials: "include" });
-      const d = await r.json();
+      const [tenantRes, notesRes] = await Promise.all([
+        fetch(`${BASE}/api/admin/tenants/${id}`, { credentials: "include" }),
+        fetch(`${BASE}/api/admin/tenants/${id}/notes`, { credentials: "include" }),
+      ]);
+      const d = await tenantRes.json();
       setData(d);
       setNewTier(d.tenant.tier);
       setTrialEndDate(d.tenant.trialEndsAt ? new Date(d.tenant.trialEndsAt).toISOString().split("T")[0] : "");
-    } finally {
-      setLoading(false);
-    }
+      setNotes(await notesRes.json());
+    } finally { setLoading(false); }
   };
 
   useEffect(() => { fetchData(); }, [id]);
@@ -80,11 +88,7 @@ export default function AdminTenantDetail() {
     if (!data || newTier === data.tenant.tier) return;
     setSavingTier(true);
     try {
-      await fetch(`${BASE}/api/admin/tenants/${id}`, {
-        method: "PATCH", credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tier: newTier }),
-      });
+      await fetch(`${BASE}/api/admin/tenants/${id}`, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tier: newTier }) });
       await fetchData();
     } finally { setSavingTier(false); }
   };
@@ -93,11 +97,7 @@ export default function AdminTenantDetail() {
     if (!data) return;
     setSuspendLoading(true);
     try {
-      const r = await fetch(`${BASE}/api/admin/tenants/${id}`, {
-        method: "PATCH", credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ isActive: !data.tenant.isActive }),
-      });
+      const r = await fetch(`${BASE}/api/admin/tenants/${id}`, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ isActive: !data.tenant.isActive }) });
       const updated = await r.json();
       setData((prev) => prev ? { ...prev, tenant: { ...prev.tenant, isActive: updated.isActive } } : prev);
     } finally { setSuspendLoading(false); }
@@ -116,11 +116,7 @@ export default function AdminTenantDetail() {
     if (!data) return;
     setSavingTrial(true);
     try {
-      await fetch(`${BASE}/api/admin/tenants/${id}`, {
-        method: "PATCH", credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ trialEndsAt: trialEndDate || null }),
-      });
+      await fetch(`${BASE}/api/admin/tenants/${id}`, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ trialEndsAt: trialEndDate || null }) });
       await fetchData();
     } finally { setSavingTrial(false); }
   };
@@ -130,38 +126,50 @@ export default function AdminTenantDetail() {
     setImpersonateLoading(true);
     try {
       const r = await fetch(`${BASE}/api/admin/tenants/${id}/impersonate`, { method: "POST", credentials: "include" });
-      if (r.ok) {
-        navigate("/");
-      } else {
-        const err = await r.json();
-        alert(err.error ?? "Impersonation failed");
-      }
+      if (r.ok) navigate("/");
+      else { const err = await r.json(); alert(err.error ?? "Impersonation failed"); }
     } finally { setImpersonateLoading(false); }
   };
 
   const toggleModule = async (moduleKey: string, current: boolean) => {
     setTogglingModule(moduleKey);
     try {
-      await fetch(`${BASE}/api/admin/tenants/${id}/modules/${moduleKey}`, {
-        method: "PATCH", credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ enabled: !current }),
-      });
-      setData((prev) => prev
-        ? { ...prev, modules: prev.modules.map((m) => m.moduleKey === moduleKey ? { ...m, enabled: !current } : m) }
-        : prev
-      );
+      await fetch(`${BASE}/api/admin/tenants/${id}/modules/${moduleKey}`, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ enabled: !current }) });
+      setData((prev) => prev ? { ...prev, modules: prev.modules.map((m) => m.moduleKey === moduleKey ? { ...m, enabled: !current } : m) } : prev);
     } finally { setTogglingModule(null); }
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64 gap-2 text-xs font-mono text-muted-foreground">
-        <Loader2 className="h-4 w-4 animate-spin" />LOADING...
-      </div>
-    );
-  }
+  const addNote = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newNote.trim()) return;
+    setSavingNote(true);
+    try {
+      const r = await fetch(`${BASE}/api/admin/tenants/${id}/notes`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ note: newNote }) });
+      const created = await r.json();
+      setNotes((prev) => [created, ...prev]);
+      setNewNote("");
+    } finally { setSavingNote(false); }
+  };
 
+  const deleteNote = async (noteId: number) => {
+    setDeletingNote(noteId);
+    try {
+      await fetch(`${BASE}/api/admin/notes/${noteId}`, { method: "DELETE", credentials: "include" });
+      setNotes((prev) => prev.filter((n) => n.id !== noteId));
+    } finally { setDeletingNote(null); }
+  };
+
+  const forceReset = async (userId: number) => {
+    setForceResetId(userId);
+    try {
+      await fetch(`${BASE}/api/admin/users/${userId}/force-reset`, { method: "POST", credentials: "include" });
+      setData((prev) => prev ? { ...prev, users: prev.users.map((u) => u.id === userId ? { ...u, mustResetPassword: true } : u) } : prev);
+    } finally { setForceResetId(null); }
+  };
+
+  if (loading) {
+    return <div className="flex items-center justify-center h-64 gap-2 text-xs font-mono text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" />LOADING...</div>;
+  }
   if (!data) return <div className="text-xs font-mono text-destructive">Tenant not found.</div>;
 
   const { tenant, users, modules } = data;
@@ -187,9 +195,7 @@ export default function AdminTenantDetail() {
           <div>
             <h1 className="text-2xl font-bold tracking-wider">{tenant.name}</h1>
             <div className="flex items-center gap-3 mt-1 flex-wrap">
-              <span className={cn("text-xs font-mono border px-2 py-0.5", TIER_STYLE[tenant.tier])}>
-                {tenant.tier.toUpperCase()}
-              </span>
+              <span className={cn("text-xs font-mono border px-2 py-0.5", TIER_STYLE[tenant.tier])}>{tenant.tier.toUpperCase()}</span>
               {tenant.isActive
                 ? <span className="flex items-center gap-1 text-xs font-mono text-primary"><span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />ACTIVE</span>
                 : <span className="flex items-center gap-1 text-xs font-mono text-destructive"><span className="h-1.5 w-1.5 rounded-full bg-destructive" />SUSPENDED</span>
@@ -216,23 +222,19 @@ export default function AdminTenantDetail() {
               <span className="text-sm font-semibold text-orange-300">Tenant Impersonation</span>
             </div>
             <p className="text-xs font-mono text-muted-foreground">
-              Browse this tenant's portal as their admin user. Sensitive data is masked.
-              Session expires in 30 minutes. All actions are logged to the audit trail.
+              Browse this tenant's portal as their admin user. Session expires in 30 minutes. All actions are logged.
             </p>
           </div>
-          <button
-            onClick={startImpersonation}
-            disabled={impersonateLoading || !tenant.isActive}
-            title={!tenant.isActive ? "Cannot impersonate suspended tenant" : undefined}
-            className="flex items-center gap-2 text-xs font-mono bg-orange-500/20 border border-orange-500/50 text-orange-300 px-4 py-2.5 hover:bg-orange-500/30 transition-colors disabled:opacity-40 shrink-0"
-          >
+          <button onClick={startImpersonation} disabled={impersonateLoading || !tenant.isActive}
+            title={!tenant.isActive ? "Cannot impersonate a suspended tenant" : undefined}
+            className="flex items-center gap-2 text-xs font-mono bg-orange-500/20 border border-orange-500/50 text-orange-300 px-4 py-2.5 hover:bg-orange-500/30 transition-colors disabled:opacity-40 shrink-0">
             {impersonateLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <EyeOff className="h-3.5 w-3.5" />}
             IMPERSONATE
           </button>
         </div>
       </div>
 
-      {/* Info + actions grid */}
+      {/* Info + controls grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Org info */}
         <div className="bg-card border border-border p-5 space-y-4">
@@ -258,8 +260,6 @@ export default function AdminTenantDetail() {
         {/* Admin controls */}
         <div className="bg-card border border-border p-5 space-y-4">
           <div className="text-xs font-mono text-muted-foreground tracking-widest">ADMIN CONTROLS</div>
-
-          {/* Tier change */}
           <div>
             <div className="text-xs font-mono text-muted-foreground mb-2">CHANGE SUBSCRIPTION TIER</div>
             <div className="flex gap-2">
@@ -272,14 +272,7 @@ export default function AdminTenantDetail() {
                 {savingTier && <Loader2 className="h-3 w-3 animate-spin" />}APPLY
               </button>
             </div>
-            {newTier !== tenant.tier && (
-              <div className="flex items-center gap-1.5 mt-2 text-xs font-mono text-orange-300">
-                <AlertTriangle className="h-3 w-3" />This resets module access to {newTier} defaults.
-              </div>
-            )}
           </div>
-
-          {/* Trial expiry (trial tier only) */}
           {tenant.tier === "trial" && (
             <div>
               <div className="text-xs font-mono text-muted-foreground mb-2">TRIAL EXPIRY DATE</div>
@@ -290,19 +283,9 @@ export default function AdminTenantDetail() {
                   className="flex items-center gap-1.5 text-xs font-mono border border-orange-400/40 text-orange-300 px-3 py-2 hover:bg-orange-400/10 transition-colors disabled:opacity-40">
                   {savingTrial && <Loader2 className="h-3 w-3 animate-spin" />}SET
                 </button>
-                {trialEndDate && (
-                  <button onClick={() => { setTrialEndDate(""); }} className="text-xs font-mono text-muted-foreground hover:text-destructive px-2">×</button>
-                )}
               </div>
-              {isTrialExpired && (
-                <div className="flex items-center gap-1.5 mt-2 text-xs font-mono text-orange-400">
-                  <AlertTriangle className="h-3 w-3" />Trial expired — tenant auto-suspended on next login.
-                </div>
-              )}
             </div>
           )}
-
-          {/* Regen key */}
           <div>
             <div className="text-xs font-mono text-muted-foreground mb-2">LICENSE KEY</div>
             <button onClick={regenKey} disabled={regenLoading}
@@ -310,16 +293,11 @@ export default function AdminTenantDetail() {
               {regenLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <KeyRound className="h-3 w-3" />}REGENERATE LICENSE KEY
             </button>
           </div>
-
-          {/* Danger zone */}
           <div>
             <div className="text-xs font-mono text-muted-foreground mb-2">DANGER ZONE</div>
             <button onClick={toggleSuspend} disabled={suspendLoading}
               className={cn("flex items-center gap-2 text-xs font-mono border px-3 py-2 transition-colors disabled:opacity-40",
-                tenant.isActive
-                  ? "border-destructive/40 text-destructive hover:bg-destructive/10"
-                  : "border-primary/40 text-primary hover:bg-primary/10"
-              )}>
+                tenant.isActive ? "border-destructive/40 text-destructive hover:bg-destructive/10" : "border-primary/40 text-primary hover:bg-primary/10")}>
               {suspendLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : tenant.isActive ? <XCircle className="h-3 w-3" /> : <CheckCircle2 className="h-3 w-3" />}
               {tenant.isActive ? "SUSPEND ORGANIZATION" : "ACTIVATE ORGANIZATION"}
             </button>
@@ -327,11 +305,49 @@ export default function AdminTenantDetail() {
         </div>
       </div>
 
+      {/* Admin Notes */}
+      <div className="bg-card border border-border">
+        <div className="flex items-center gap-2 px-5 py-3 border-b border-border">
+          <StickyNote className="h-4 w-4 text-muted-foreground" />
+          <div className="text-xs font-mono text-muted-foreground tracking-widest">INTERNAL NOTES ({notes.length})</div>
+          <span className="text-xs font-mono text-muted-foreground/50 ml-2">— visible to platform admins only</span>
+        </div>
+        <div className="p-4 space-y-3">
+          <form onSubmit={addNote} className="flex gap-2">
+            <input value={newNote} onChange={(e) => setNewNote(e.target.value)}
+              placeholder="Add an internal note about this tenant..."
+              className="flex-1 bg-background border border-border px-3 py-2 text-sm font-mono focus:outline-none focus:border-orange-400/50 placeholder:text-muted-foreground/50" />
+            <button type="submit" disabled={savingNote || !newNote.trim()}
+              className="flex items-center gap-1.5 text-xs font-mono border border-orange-400/40 text-orange-300 px-3 py-2 hover:bg-orange-400/10 transition-colors disabled:opacity-40">
+              {savingNote ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}ADD
+            </button>
+          </form>
+          {notes.length === 0 ? (
+            <div className="text-xs font-mono text-muted-foreground py-2">No internal notes yet.</div>
+          ) : (
+            <div className="space-y-2">
+              {notes.map((n) => (
+                <div key={n.id} className="flex items-start gap-3 bg-background/50 border border-border px-3 py-2.5">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-foreground/90">{n.note}</p>
+                    <div className="text-xs font-mono text-muted-foreground mt-1">
+                      {n.createdByEmail} · {new Date(n.createdAt).toLocaleString()}
+                    </div>
+                  </div>
+                  <button onClick={() => deleteNote(n.id)} disabled={deletingNote === n.id}
+                    className="text-muted-foreground hover:text-destructive transition-colors shrink-0 disabled:opacity-40">
+                    {deletingNote === n.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* Module licenses */}
       <div className="bg-card border border-border">
-        <div className="px-5 py-3 border-b border-border text-xs font-mono text-muted-foreground tracking-widest">
-          MODULE LICENSES — OVERRIDE
-        </div>
+        <div className="px-5 py-3 border-b border-border text-xs font-mono text-muted-foreground tracking-widest">MODULE LICENSES — OVERRIDE</div>
         <div className="divide-y divide-border">
           {modules.map((mod) => {
             const isToggling = togglingModule === mod.moduleKey;
@@ -377,7 +393,12 @@ export default function AdminTenantDetail() {
                   {u.displayName[0]?.toUpperCase()}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium truncate">{u.displayName}</div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium truncate">{u.displayName}</span>
+                    {u.mustResetPassword && (
+                      <span className="text-[9px] font-mono border border-orange-400/40 text-orange-400 px-1 py-0.5">RESET REQ.</span>
+                    )}
+                  </div>
                   <div className="text-xs font-mono text-muted-foreground truncate">{u.email}</div>
                 </div>
                 <span className={cn("text-xs font-mono border px-2 py-0.5 shrink-0",
@@ -389,6 +410,12 @@ export default function AdminTenantDetail() {
                   {u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleDateString() : "Never"}
                 </div>
                 {u.isActive ? <CheckCircle2 className="h-4 w-4 text-primary shrink-0" /> : <XCircle className="h-4 w-4 text-destructive shrink-0" />}
+                <button onClick={() => forceReset(u.id)} disabled={forceResetId === u.id || u.mustResetPassword}
+                  title="Force password reset on next login"
+                  className="flex items-center gap-1 text-xs font-mono border border-orange-400/30 text-orange-400/70 px-2 py-1 hover:text-orange-300 hover:border-orange-400/60 transition-colors disabled:opacity-30 shrink-0">
+                  {forceResetId === u.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCcw className="h-3 w-3" />}
+                  RESET
+                </button>
               </div>
             ))}
           </div>

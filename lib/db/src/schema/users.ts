@@ -17,6 +17,7 @@ export const usersTable = pgTable("users", {
   displayName: text("display_name").notNull(),
   role: userRoleEnum("role").notNull().default("analyst"),
   isActive: boolean("is_active").notNull().default(true),
+  mustResetPassword: boolean("must_reset_password").notNull().default(false),
   lastLoginAt: timestamp("last_login_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });

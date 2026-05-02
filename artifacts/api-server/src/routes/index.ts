@@ -11,12 +11,16 @@ import copilotRouter from "./copilot";
 import authRouter from "./auth";
 import licensesRouter from "./licenses";
 import adminRouter from "./admin";
+import vouchersRouter from "./vouchers";
+import announcementsRouter from "./announcements";
 
 const router: IRouter = Router();
 
 router.use(authRouter);
 router.use(licensesRouter);
 router.use(adminRouter);
+router.use(vouchersRouter);
+router.use(announcementsRouter);
 router.use(healthRouter);
 router.use(agentsRouter);
 router.use(sprintsRouter);

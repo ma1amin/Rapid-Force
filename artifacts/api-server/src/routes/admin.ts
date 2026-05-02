@@ -1,6 +1,9 @@
 import { Router } from "express";
-import { db, tenantsTable, usersTable, moduleLicensesTable, adminAuditLogsTable } from "@workspace/db";
-import { eq, count, desc, and } from "drizzle-orm";
+import {
+  db, tenantsTable, usersTable, moduleLicensesTable,
+  adminAuditLogsTable, adminNotesTable, vouchersTable, voucherRedemptionsTable,
+} from "@workspace/db";
+import { eq, count, desc, and, lt, isNull, or, isNotNull } from "drizzle-orm";
 import { z } from "zod/v4";
 import { requirePlatformAdmin } from "../middleware/requirePlatformAdmin";
 
@@ -26,19 +29,10 @@ function generateLicenseKey(): string {
   return `RFCF-${seg()}-${seg()}-${seg()}`;
 }
 
-function logAudit(
-  actorEmail: string,
-  action: string,
-  targetType?: string,
-  targetId?: number,
-  targetName?: string,
-  metadata?: object,
-) {
+function logAudit(actorEmail: string, action: string, targetType?: string, targetId?: number, targetName?: string, metadata?: object) {
   db.insert(adminAuditLogsTable).values({
-    action,
-    actorEmail,
-    targetType: targetType ?? null,
-    targetId: targetId ?? null,
+    action, actorEmail,
+    targetType: targetType ?? null, targetId: targetId ?? null,
     targetName: targetName ?? null,
     metadata: metadata ? JSON.stringify(metadata) : null,
   }).catch(() => {});
@@ -71,7 +65,7 @@ router.get("/admin/auth/me", (req, res) => {
   res.json({ email: session.platformAdminEmail });
 });
 
-// ─── Stats ─────────────────────────────────────────────────────────────────────
+// ─── Stats ────────────────────────────────────────────────────────────────────
 
 router.get("/admin/stats", requirePlatformAdmin, async (req, res) => {
   try {
@@ -84,6 +78,81 @@ router.get("/admin/stats", requirePlatformAdmin, async (req, res) => {
     const totalTenants = tierCounts.reduce((s, t) => s + Number(t.count), 0);
     const mrr = tierCounts.reduce((s, t) => s + (TIER_PRICE[t.tier] ?? 0) * Number(t.count), 0);
     res.json({ tierCounts, totalTenants, activeTenants: Number(activeTenants), totalUsers: Number(totalUsers), mrr, recentTenants });
+  } catch (err) { req.log.error(err); res.status(500).json({ error: "Internal server error" }); }
+});
+
+// ─── Analytics ────────────────────────────────────────────────────────────────
+
+router.get("/admin/analytics", requirePlatformAdmin, async (req, res) => {
+  try {
+    const [allTenants, allUsers, [{ totalRedemptions }], [{ activeVouchers }]] = await Promise.all([
+      db.select().from(tenantsTable),
+      db.select({ tenantId: usersTable.tenantId, lastLoginAt: usersTable.lastLoginAt }).from(usersTable),
+      db.select({ totalRedemptions: count() }).from(voucherRedemptionsTable),
+      db.select({ activeVouchers: count() }).from(vouchersTable).where(eq(vouchersTable.isActive, true)),
+    ]);
+
+    const now = new Date();
+
+    // MRR by month (last 6 months)
+    const mrrByMonth = Array.from({ length: 6 }, (_, i) => {
+      const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1);
+      const end = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59);
+      const month = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      const mrr = allTenants
+        .filter((t) => new Date(t.createdAt) <= end && t.tier !== "trial" && t.isActive)
+        .reduce((s, t) => s + (TIER_PRICE[t.tier] ?? 0), 0);
+      return { month, mrr };
+    });
+
+    // Registrations by month (last 6 months)
+    const registrationsByMonth = Array.from({ length: 6 }, (_, i) => {
+      const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1);
+      const end = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59);
+      const month = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      const count = allTenants.filter((t) => {
+        const cd = new Date(t.createdAt);
+        return cd >= d && cd <= end;
+      }).length;
+      return { month, count };
+    });
+
+    // Trial expiring within 7 days
+    const in7Days = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    const trialExpiringSoon = allTenants.filter((t) =>
+      t.tier === "trial" && t.trialEndsAt && new Date(t.trialEndsAt) <= in7Days && new Date(t.trialEndsAt) >= now && t.isActive
+    ).map((t) => ({ id: t.id, name: t.name, trialEndsAt: t.trialEndsAt }));
+
+    // Inactive tenants (no logins in 30+ days)
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const tenantLastLogin = new Map<number, Date | null>();
+    for (const u of allUsers) {
+      const existing = tenantLastLogin.get(u.tenantId);
+      if (u.lastLoginAt) {
+        const d = new Date(u.lastLoginAt);
+        if (!existing || d > existing) tenantLastLogin.set(u.tenantId, d);
+      } else if (existing === undefined) {
+        tenantLastLogin.set(u.tenantId, null);
+      }
+    }
+    const inactiveTenants = allTenants
+      .filter((t) => t.isActive && t.tier !== "trial")
+      .filter((t) => {
+        const last = tenantLastLogin.get(t.id);
+        return !last || last < thirtyDaysAgo;
+      })
+      .map((t) => ({ id: t.id, name: t.name, tier: t.tier, lastActivityAt: tenantLastLogin.get(t.id) ?? null }))
+      .slice(0, 10);
+
+    // Churn: suspended tenants
+    const churnedTenants = allTenants.filter((t) => !t.isActive).length;
+
+    res.json({
+      mrrByMonth, registrationsByMonth, trialExpiringSoon, inactiveTenants,
+      voucherStats: { totalRedemptions: Number(totalRedemptions), activeVouchers: Number(activeVouchers) },
+      churnedTenants,
+      totalRevenuePotential: allTenants.filter((t) => t.isActive && t.tier !== "trial").reduce((s, t) => s + (TIER_PRICE[t.tier] ?? 0), 0),
+    });
   } catch (err) { req.log.error(err); res.status(500).json({ error: "Internal server error" }); }
 });
 
@@ -115,7 +184,7 @@ router.get("/admin/tenants/:id", requirePlatformAdmin, async (req, res) => {
       db.select().from(tenantsTable).where(eq(tenantsTable.id, id)),
       db.select({
         id: usersTable.id, email: usersTable.email, displayName: usersTable.displayName,
-        role: usersTable.role, isActive: usersTable.isActive,
+        role: usersTable.role, isActive: usersTable.isActive, mustResetPassword: usersTable.mustResetPassword,
         lastLoginAt: usersTable.lastLoginAt, createdAt: usersTable.createdAt,
       }).from(usersTable).where(eq(usersTable.tenantId, id)).orderBy(desc(usersTable.createdAt)),
       db.select({ moduleKey: moduleLicensesTable.moduleKey, enabled: moduleLicensesTable.enabled })
@@ -126,7 +195,7 @@ router.get("/admin/tenants/:id", requirePlatformAdmin, async (req, res) => {
   } catch (err) { req.log.error(err); res.status(500).json({ error: "Internal server error" }); }
 });
 
-// ─── Bulk Tenant Operations ────────────────────────────────────────────────────
+// ─── Bulk Operations ──────────────────────────────────────────────────────────
 
 const BulkSchema = z.object({
   ids: z.array(z.number()).min(1),
@@ -141,13 +210,9 @@ router.post("/admin/tenants/bulk", requirePlatformAdmin, async (req, res) => {
   const session = (req as any).session;
   try {
     for (const id of ids) {
-      if (action === "suspend") {
-        await db.update(tenantsTable).set({ isActive: false, updatedAt: new Date() }).where(eq(tenantsTable.id, id));
-      } else if (action === "activate") {
-        await db.update(tenantsTable).set({ isActive: true, updatedAt: new Date() }).where(eq(tenantsTable.id, id));
-      } else if (action === "tier" && tier) {
-        await db.update(tenantsTable).set({ tier, updatedAt: new Date() }).where(eq(tenantsTable.id, id));
-      }
+      if (action === "suspend") await db.update(tenantsTable).set({ isActive: false, updatedAt: new Date() }).where(eq(tenantsTable.id, id));
+      else if (action === "activate") await db.update(tenantsTable).set({ isActive: true, updatedAt: new Date() }).where(eq(tenantsTable.id, id));
+      else if (action === "tier" && tier) await db.update(tenantsTable).set({ tier, updatedAt: new Date() }).where(eq(tenantsTable.id, id));
     }
     const actionMap: Record<string, string> = { suspend: "BULK_SUSPEND", activate: "BULK_ACTIVATE", tier: "BULK_TIER_CHANGE" };
     logAudit(session.platformAdminEmail, actionMap[action] ?? "BULK_ACTION", "tenant", undefined, undefined, { ids, tier });
@@ -173,14 +238,11 @@ router.patch("/admin/tenants/:id", requirePlatformAdmin, async (req, res) => {
   try {
     const [current] = await db.select().from(tenantsTable).where(eq(tenantsTable.id, id));
     if (!current) { res.status(404).json({ error: "Not found" }); return; }
-
     const updates: any = { updatedAt: new Date() };
     if (parsed.data.tier !== undefined) updates.tier = parsed.data.tier;
     if (parsed.data.isActive !== undefined) updates.isActive = parsed.data.isActive;
     if (parsed.data.name !== undefined) updates.name = parsed.data.name;
-    if (parsed.data.trialEndsAt !== undefined) {
-      updates.trialEndsAt = parsed.data.trialEndsAt ? new Date(parsed.data.trialEndsAt) : null;
-    }
+    if (parsed.data.trialEndsAt !== undefined) updates.trialEndsAt = parsed.data.trialEndsAt ? new Date(parsed.data.trialEndsAt) : null;
 
     if (parsed.data.tier && parsed.data.tier !== current.tier) {
       const enabledModules = TIER_MODULES[parsed.data.tier] ?? TIER_MODULES.trial;
@@ -188,27 +250,20 @@ router.patch("/admin/tenants/:id", requirePlatformAdmin, async (req, res) => {
         const shouldEnable = enabledModules.includes(m);
         const [existing] = await db.select().from(moduleLicensesTable)
           .where(and(eq(moduleLicensesTable.tenantId, id), eq(moduleLicensesTable.moduleKey, m)));
-        if (existing) {
-          await db.update(moduleLicensesTable)
-            .set({ enabled: shouldEnable, updatedAt: new Date() })
-            .where(and(eq(moduleLicensesTable.tenantId, id), eq(moduleLicensesTable.moduleKey, m)));
-        }
+        if (existing) await db.update(moduleLicensesTable).set({ enabled: shouldEnable, updatedAt: new Date() })
+          .where(and(eq(moduleLicensesTable.tenantId, id), eq(moduleLicensesTable.moduleKey, m)));
       }
       logAudit(session.platformAdminEmail, "TENANT_TIER_CHANGED", "tenant", id, current.name, { from: current.tier, to: parsed.data.tier });
     }
-    if (parsed.data.isActive !== undefined && parsed.data.isActive !== current.isActive) {
+    if (parsed.data.isActive !== undefined && parsed.data.isActive !== current.isActive)
       logAudit(session.platformAdminEmail, parsed.data.isActive ? "TENANT_ACTIVATED" : "TENANT_SUSPENDED", "tenant", id, current.name);
-    }
-    if (parsed.data.trialEndsAt !== undefined) {
+    if (parsed.data.trialEndsAt !== undefined)
       logAudit(session.platformAdminEmail, "TRIAL_EXPIRY_SET", "tenant", id, current.name, { expiresAt: parsed.data.trialEndsAt });
-    }
 
     const [updated] = await db.update(tenantsTable).set(updates).where(eq(tenantsTable.id, id)).returning();
     res.json(updated);
   } catch (err) { req.log.error(err); res.status(500).json({ error: "Internal server error" }); }
 });
-
-// ─── Regen Key ────────────────────────────────────────────────────────────────
 
 router.post("/admin/tenants/:id/regen-key", requirePlatformAdmin, async (req, res) => {
   const id = parseInt(req.params.id);
@@ -218,15 +273,11 @@ router.post("/admin/tenants/:id/regen-key", requirePlatformAdmin, async (req, re
     const [current] = await db.select().from(tenantsTable).where(eq(tenantsTable.id, id));
     if (!current) { res.status(404).json({ error: "Not found" }); return; }
     const newKey = generateLicenseKey();
-    const [updated] = await db.update(tenantsTable)
-      .set({ licenseKey: newKey, updatedAt: new Date() })
-      .where(eq(tenantsTable.id, id)).returning();
+    const [updated] = await db.update(tenantsTable).set({ licenseKey: newKey, updatedAt: new Date() }).where(eq(tenantsTable.id, id)).returning();
     logAudit(session.platformAdminEmail, "TENANT_KEY_REGEN", "tenant", id, current.name, { newKeyPrefix: newKey.substring(0, 9) + "…" });
     res.json(updated);
   } catch (err) { req.log.error(err); res.status(500).json({ error: "Internal server error" }); }
 });
-
-// ─── Module Toggle ────────────────────────────────────────────────────────────
 
 router.patch("/admin/tenants/:id/modules/:moduleKey", requirePlatformAdmin, async (req, res) => {
   const id = parseInt(req.params.id);
@@ -239,14 +290,47 @@ router.patch("/admin/tenants/:id/modules/:moduleKey", requirePlatformAdmin, asyn
     const [tenant] = await db.select().from(tenantsTable).where(eq(tenantsTable.id, id));
     const [existing] = await db.select().from(moduleLicensesTable)
       .where(and(eq(moduleLicensesTable.tenantId, id), eq(moduleLicensesTable.moduleKey, moduleKey)));
-    if (existing) {
-      await db.update(moduleLicensesTable).set({ enabled, updatedAt: new Date() })
-        .where(and(eq(moduleLicensesTable.tenantId, id), eq(moduleLicensesTable.moduleKey, moduleKey)));
-    } else {
-      await db.insert(moduleLicensesTable).values({ tenantId: id, moduleKey, enabled });
-    }
+    if (existing) await db.update(moduleLicensesTable).set({ enabled, updatedAt: new Date() })
+      .where(and(eq(moduleLicensesTable.tenantId, id), eq(moduleLicensesTable.moduleKey, moduleKey)));
+    else await db.insert(moduleLicensesTable).values({ tenantId: id, moduleKey, enabled });
     logAudit(session.platformAdminEmail, "MODULE_TOGGLED", "tenant", id, tenant?.name, { moduleKey, enabled });
     res.json({ ok: true, moduleKey, enabled });
+  } catch (err) { req.log.error(err); res.status(500).json({ error: "Internal server error" }); }
+});
+
+// ─── Admin Notes ──────────────────────────────────────────────────────────────
+
+router.get("/admin/tenants/:id/notes", requirePlatformAdmin, async (req, res) => {
+  const id = parseInt(req.params.id);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+  try {
+    const notes = await db.select().from(adminNotesTable)
+      .where(eq(adminNotesTable.tenantId, id))
+      .orderBy(desc(adminNotesTable.createdAt));
+    res.json(notes);
+  } catch (err) { req.log.error(err); res.status(500).json({ error: "Internal server error" }); }
+});
+
+router.post("/admin/tenants/:id/notes", requirePlatformAdmin, async (req, res) => {
+  const id = parseInt(req.params.id);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+  const { note } = req.body ?? {};
+  if (!note || typeof note !== "string" || note.trim().length === 0) { res.status(400).json({ error: "note required" }); return; }
+  const session = (req as any).session;
+  try {
+    const [created] = await db.insert(adminNotesTable).values({
+      tenantId: id, note: note.trim(), createdByEmail: session.platformAdminEmail,
+    }).returning();
+    res.status(201).json(created);
+  } catch (err) { req.log.error(err); res.status(500).json({ error: "Internal server error" }); }
+});
+
+router.delete("/admin/notes/:id", requirePlatformAdmin, async (req, res) => {
+  const id = parseInt(req.params.id);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+  try {
+    await db.delete(adminNotesTable).where(eq(adminNotesTable.id, id));
+    res.json({ ok: true });
   } catch (err) { req.log.error(err); res.status(500).json({ error: "Internal server error" }); }
 });
 
@@ -260,28 +344,17 @@ router.post("/admin/tenants/:id/impersonate", requirePlatformAdmin, async (req, 
     const [tenant] = await db.select().from(tenantsTable).where(eq(tenantsTable.id, id));
     if (!tenant) { res.status(404).json({ error: "Tenant not found" }); return; }
     if (!tenant.isActive) { res.status(400).json({ error: "Cannot impersonate a suspended tenant" }); return; }
-
     const users = await db.select().from(usersTable)
       .where(and(eq(usersTable.tenantId, id), eq(usersTable.isActive, true)))
       .orderBy(usersTable.role);
-
     const target = users.find((u) => u.role === "admin") ?? users[0];
     if (!target) { res.status(404).json({ error: "No active users in this tenant" }); return; }
-
-    const THIRTY_MIN = 30 * 60 * 1000;
     session.impersonating = {
-      userId: target.id,
-      tenantId: id,
-      userRole: target.role,
-      adminEmail: session.platformAdminEmail,
-      expiresAt: Date.now() + THIRTY_MIN,
+      userId: target.id, tenantId: id, userRole: target.role,
+      adminEmail: session.platformAdminEmail, expiresAt: Date.now() + 30 * 60 * 1000,
     };
-
-    logAudit(
-      session.platformAdminEmail, "IMPERSONATION_STARTED", "tenant", id, tenant.name,
-      { userId: target.id, userEmail: target.email, userRole: target.role },
-    );
-
+    logAudit(session.platformAdminEmail, "IMPERSONATION_STARTED", "tenant", id, tenant.name,
+      { userId: target.id, userEmail: target.email, userRole: target.role });
     res.json({ ok: true, tenantId: id, userId: target.id });
   } catch (err) { req.log.error(err); res.status(500).json({ error: "Internal server error" }); }
 });
@@ -291,12 +364,9 @@ router.post("/admin/impersonate/exit", requirePlatformAdmin, async (req, res) =>
   const imp = session.impersonating;
   if (imp) {
     const [tenant] = await db.select().from(tenantsTable).where(eq(tenantsTable.id, imp.tenantId)).catch(() => [undefined]);
-    const startedMs = imp.expiresAt - 30 * 60 * 1000;
-    const durationMin = Math.round((Date.now() - startedMs) / 60000);
-    logAudit(
-      session.platformAdminEmail, "IMPERSONATION_ENDED", "tenant", imp.tenantId, tenant?.name,
-      { userId: imp.userId, durationMinutes: durationMin },
-    );
+    const durationMin = Math.round((Date.now() - (imp.expiresAt - 30 * 60 * 1000)) / 60000);
+    logAudit(session.platformAdminEmail, "IMPERSONATION_ENDED", "tenant", imp.tenantId, tenant?.name,
+      { userId: imp.userId, durationMinutes: durationMin });
     delete session.impersonating;
   }
   res.json({ ok: true });
@@ -307,9 +377,20 @@ router.post("/admin/impersonate/exit", requirePlatformAdmin, async (req, res) =>
 router.get("/admin/audit-logs", requirePlatformAdmin, async (req, res) => {
   try {
     const limit = Math.min(parseInt((req.query.limit as string) ?? "100"), 500);
-    const logs = await db.select().from(adminAuditLogsTable)
-      .orderBy(desc(adminAuditLogsTable.createdAt)).limit(limit);
+    const logs = await db.select().from(adminAuditLogsTable).orderBy(desc(adminAuditLogsTable.createdAt)).limit(limit);
     res.json(logs);
+  } catch (err) { req.log.error(err); res.status(500).json({ error: "Internal server error" }); }
+});
+
+router.get("/admin/audit-logs/export", requirePlatformAdmin, async (req, res) => {
+  try {
+    const logs = await db.select().from(adminAuditLogsTable).orderBy(desc(adminAuditLogsTable.createdAt)).limit(1000);
+    const headers = ["id", "action", "actorEmail", "targetType", "targetId", "targetName", "metadata", "createdAt"];
+    const escape = (v: any) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+    const csv = [headers.join(","), ...logs.map((l: any) => headers.map((h) => escape(l[h])).join(","))].join("\n");
+    res.setHeader("Content-Type", "text/csv");
+    res.setHeader("Content-Disposition", "attachment; filename=audit-logs.csv");
+    res.send(csv);
   } catch (err) { req.log.error(err); res.status(500).json({ error: "Internal server error" }); }
 });
 
@@ -317,16 +398,12 @@ router.get("/admin/audit-logs", requirePlatformAdmin, async (req, res) => {
 
 router.get("/admin/users", requirePlatformAdmin, async (req, res) => {
   try {
-    const users = await db
-      .select({
-        id: usersTable.id, email: usersTable.email, displayName: usersTable.displayName,
-        role: usersTable.role, isActive: usersTable.isActive,
-        lastLoginAt: usersTable.lastLoginAt, createdAt: usersTable.createdAt,
-        tenantId: usersTable.tenantId, tenantName: tenantsTable.name, tenantTier: tenantsTable.tier,
-      })
-      .from(usersTable)
-      .leftJoin(tenantsTable, eq(tenantsTable.id, usersTable.tenantId))
-      .orderBy(desc(usersTable.createdAt));
+    const users = await db.select({
+      id: usersTable.id, email: usersTable.email, displayName: usersTable.displayName,
+      role: usersTable.role, isActive: usersTable.isActive, mustResetPassword: usersTable.mustResetPassword,
+      lastLoginAt: usersTable.lastLoginAt, createdAt: usersTable.createdAt,
+      tenantId: usersTable.tenantId, tenantName: tenantsTable.name, tenantTier: tenantsTable.tier,
+    }).from(usersTable).leftJoin(tenantsTable, eq(tenantsTable.id, usersTable.tenantId)).orderBy(desc(usersTable.createdAt));
     res.json(users);
   } catch (err) { req.log.error(err); res.status(500).json({ error: "Internal server error" }); }
 });
@@ -349,13 +426,23 @@ router.patch("/admin/users/:id", requirePlatformAdmin, async (req, res) => {
     if (parsed.data.isActive !== undefined) updates.isActive = parsed.data.isActive;
     if (parsed.data.role !== undefined) updates.role = parsed.data.role;
     const [updated] = await db.update(usersTable).set(updates).where(eq(usersTable.id, id)).returning();
-    if (parsed.data.isActive !== undefined && parsed.data.isActive !== current.isActive) {
+    if (parsed.data.isActive !== undefined && parsed.data.isActive !== current.isActive)
       logAudit(session.platformAdminEmail, parsed.data.isActive ? "USER_ACTIVATED" : "USER_DEACTIVATED", "user", id, current.email);
-    }
-    if (parsed.data.role !== undefined && parsed.data.role !== current.role) {
+    if (parsed.data.role !== undefined && parsed.data.role !== current.role)
       logAudit(session.platformAdminEmail, "USER_ROLE_CHANGED", "user", id, current.email, { from: current.role, to: parsed.data.role });
-    }
     res.json({ id: updated.id, email: updated.email, displayName: updated.displayName, isActive: updated.isActive, role: updated.role });
+  } catch (err) { req.log.error(err); res.status(500).json({ error: "Internal server error" }); }
+});
+
+router.post("/admin/users/:id/force-reset", requirePlatformAdmin, async (req, res) => {
+  const id = parseInt(req.params.id);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+  const session = (req as any).session;
+  try {
+    const [user] = await db.update(usersTable).set({ mustResetPassword: true }).where(eq(usersTable.id, id)).returning();
+    if (!user) { res.status(404).json({ error: "Not found" }); return; }
+    logAudit(session.platformAdminEmail, "USER_FORCE_RESET", "user", id, user.email);
+    res.json({ ok: true });
   } catch (err) { req.log.error(err); res.status(500).json({ error: "Internal server error" }); }
 });
 

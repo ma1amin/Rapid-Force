@@ -30,6 +30,9 @@ import AdminTenants from "@/pages/admin/AdminTenants";
 import AdminTenantDetail from "@/pages/admin/AdminTenantDetail";
 import AdminUsers from "@/pages/admin/AdminUsers";
 import AdminAuditLog from "@/pages/admin/AdminAuditLog";
+import AdminVouchers from "@/pages/admin/AdminVouchers";
+import AdminAnalytics from "@/pages/admin/AdminAnalytics";
+import AdminAnnouncements from "@/pages/admin/AdminAnnouncements";
 import { type ReactNode, useEffect } from "react";
 
 const queryClient = new QueryClient({
@@ -39,18 +42,8 @@ const queryClient = new QueryClient({
 function AdminProtectedRoute({ children }: { children: ReactNode }) {
   const { admin, loading } = useAdminAuth();
   const [, navigate] = useLocation();
-
-  useEffect(() => {
-    if (!loading && !admin) navigate("/admin/login");
-  }, [loading, admin, navigate]);
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center text-xs font-mono text-muted-foreground">
-        LOADING...
-      </div>
-    );
-  }
+  useEffect(() => { if (!loading && !admin) navigate("/admin/login"); }, [loading, admin, navigate]);
+  if (loading) return <div className="min-h-screen bg-background flex items-center justify-center text-xs font-mono text-muted-foreground">LOADING...</div>;
   if (!admin) return null;
   return <>{children}</>;
 }
@@ -58,79 +51,53 @@ function AdminProtectedRoute({ children }: { children: ReactNode }) {
 function Router() {
   return (
     <Switch>
-      {/* Tenant portal public routes */}
       <Route path="/login" component={Login} />
       <Route path="/register" component={Register} />
 
-      {/* Admin portal — flat routes so AdminAuthProvider never remounts */}
+      {/* Admin portal — flat routes, AdminAuthProvider lives above */}
       <Route path="/admin/login" component={AdminLogin} />
       <Route path="/admin/tenants/:id">
-        {(params) => (
-          <AdminProtectedRoute>
-            <AdminShell><AdminTenantDetail /></AdminShell>
-          </AdminProtectedRoute>
-        )}
+        {() => <AdminProtectedRoute><AdminShell><AdminTenantDetail /></AdminShell></AdminProtectedRoute>}
       </Route>
       <Route path="/admin/tenants">
-        <AdminProtectedRoute>
-          <AdminShell><AdminTenants /></AdminShell>
-        </AdminProtectedRoute>
+        <AdminProtectedRoute><AdminShell><AdminTenants /></AdminShell></AdminProtectedRoute>
       </Route>
       <Route path="/admin/users">
-        <AdminProtectedRoute>
-          <AdminShell><AdminUsers /></AdminShell>
-        </AdminProtectedRoute>
+        <AdminProtectedRoute><AdminShell><AdminUsers /></AdminShell></AdminProtectedRoute>
+      </Route>
+      <Route path="/admin/analytics">
+        <AdminProtectedRoute><AdminShell><AdminAnalytics /></AdminShell></AdminProtectedRoute>
+      </Route>
+      <Route path="/admin/vouchers">
+        <AdminProtectedRoute><AdminShell><AdminVouchers /></AdminShell></AdminProtectedRoute>
+      </Route>
+      <Route path="/admin/announcements">
+        <AdminProtectedRoute><AdminShell><AdminAnnouncements /></AdminShell></AdminProtectedRoute>
       </Route>
       <Route path="/admin/audit">
-        <AdminProtectedRoute>
-          <AdminShell><AdminAuditLog /></AdminShell>
-        </AdminProtectedRoute>
+        <AdminProtectedRoute><AdminShell><AdminAuditLog /></AdminShell></AdminProtectedRoute>
       </Route>
       <Route path="/admin">
-        <AdminProtectedRoute>
-          <AdminShell><AdminDashboard /></AdminShell>
-        </AdminProtectedRoute>
+        <AdminProtectedRoute><AdminShell><AdminDashboard /></AdminShell></AdminProtectedRoute>
       </Route>
 
-      {/* Tenant portal protected routes */}
+      {/* Tenant portal */}
       <Route>
         <ProtectedRoute>
           <LicenseProvider>
             <Shell>
               <Switch>
-                <Route path="/">
-                  <ModuleGate moduleKey="command_center"><Dashboard /></ModuleGate>
-                </Route>
-                <Route path="/agents">
-                  <ModuleGate moduleKey="agent_fleet"><Agents /></ModuleGate>
-                </Route>
-                <Route path="/sprints">
-                  <ModuleGate moduleKey="sprint_ops"><Sprints /></ModuleGate>
-                </Route>
-                <Route path="/missions">
-                  <ModuleGate moduleKey="missions"><Missions /></ModuleGate>
-                </Route>
-                <Route path="/threats">
-                  <ModuleGate moduleKey="threat_intel"><Threats /></ModuleGate>
-                </Route>
-                <Route path="/detections">
-                  <ModuleGate moduleKey="detection_eng"><Detections /></ModuleGate>
-                </Route>
-                <Route path="/incidents">
-                  <ModuleGate moduleKey="incidents"><Incidents /></ModuleGate>
-                </Route>
-                <Route path="/activity">
-                  <ModuleGate moduleKey="event_log"><Activity /></ModuleGate>
-                </Route>
-                <Route path="/adversarial">
-                  <ModuleGate moduleKey="adversarial_sim"><AdversarialSim /></ModuleGate>
-                </Route>
-                <Route path="/hunting">
-                  <ModuleGate moduleKey="threat_hunting"><ThreatHunting /></ModuleGate>
-                </Route>
-                <Route path="/license-admin">
-                  <ModuleGate moduleKey="license_admin"><LicenseAdmin /></ModuleGate>
-                </Route>
+                <Route path="/"><ModuleGate moduleKey="command_center"><Dashboard /></ModuleGate></Route>
+                <Route path="/agents"><ModuleGate moduleKey="agent_fleet"><Agents /></ModuleGate></Route>
+                <Route path="/sprints"><ModuleGate moduleKey="sprint_ops"><Sprints /></ModuleGate></Route>
+                <Route path="/missions"><ModuleGate moduleKey="missions"><Missions /></ModuleGate></Route>
+                <Route path="/threats"><ModuleGate moduleKey="threat_intel"><Threats /></ModuleGate></Route>
+                <Route path="/detections"><ModuleGate moduleKey="detection_eng"><Detections /></ModuleGate></Route>
+                <Route path="/incidents"><ModuleGate moduleKey="incidents"><Incidents /></ModuleGate></Route>
+                <Route path="/activity"><ModuleGate moduleKey="event_log"><Activity /></ModuleGate></Route>
+                <Route path="/adversarial"><ModuleGate moduleKey="adversarial_sim"><AdversarialSim /></ModuleGate></Route>
+                <Route path="/hunting"><ModuleGate moduleKey="threat_hunting"><ThreatHunting /></ModuleGate></Route>
+                <Route path="/license-admin"><ModuleGate moduleKey="license_admin"><LicenseAdmin /></ModuleGate></Route>
                 <Route component={NotFound} />
               </Switch>
             </Shell>
@@ -147,7 +114,6 @@ export default function App() {
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
           <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-            {/* AdminAuthProvider lives here — never remounts during admin navigation */}
             <AdminAuthProvider>
               <AuthProvider>
                 <Router />
