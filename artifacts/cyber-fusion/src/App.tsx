@@ -23,7 +23,6 @@ import Detections from "@/pages/Detections";
 import Incidents from "@/pages/Incidents";
 import AdversarialSim from "@/pages/AdversarialSim";
 import ThreatHunting from "@/pages/ThreatHunting";
-import LicenseAdmin from "@/pages/LicenseAdmin";
 import AdminLogin from "@/pages/admin/AdminLogin";
 import AdminDashboard from "@/pages/admin/AdminDashboard";
 import AdminTenants from "@/pages/admin/AdminTenants";
@@ -33,6 +32,7 @@ import AdminAuditLog from "@/pages/admin/AdminAuditLog";
 import AdminVouchers from "@/pages/admin/AdminVouchers";
 import AdminAnalytics from "@/pages/admin/AdminAnalytics";
 import AdminAnnouncements from "@/pages/admin/AdminAnnouncements";
+import AdminLicenseAdmin from "@/pages/admin/AdminLicenseAdmin";
 import { type ReactNode, useEffect } from "react";
 
 const queryClient = new QueryClient({
@@ -75,7 +75,7 @@ function Router() {
         <AdminProtectedRoute><AdminShell><AdminAnnouncements /></AdminShell></AdminProtectedRoute>
       </Route>
       <Route path="/admin/license-admin">
-        <AdminProtectedRoute><AdminShell><LicenseProvider><LicenseAdmin /></LicenseProvider></AdminShell></AdminProtectedRoute>
+        <AdminProtectedRoute><AdminShell><AdminLicenseAdmin /></AdminShell></AdminProtectedRoute>
       </Route>
       <Route path="/admin/audit">
         <AdminProtectedRoute><AdminShell><AdminAuditLog /></AdminShell></AdminProtectedRoute>
