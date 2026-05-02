@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { agentsTable } from "@workspace/db";
-import { eq, sql } from "drizzle-orm";
+import { agentsTable, activityTable } from "@workspace/db";
+import { eq } from "drizzle-orm";
 import {
   CreateAgentBody,
   UpdateAgentBody,
@@ -50,6 +50,15 @@ router.post("/agents", async (req, res) => {
       .insert(agentsTable)
       .values({ ...parsed.data, lastHeartbeat: new Date() })
       .returning();
+
+    await db.insert(activityTable).values({
+      type: "agent_activated",
+      message: `${agent.name} activated — ${agent.module} module online`,
+      agentName: agent.name,
+      entityType: "agent",
+      entityId: agent.id,
+    });
+
     res.status(201).json(agent);
   } catch (err) {
     req.log.error(err);
@@ -105,6 +114,17 @@ router.patch("/agents/:id", async (req, res) => {
       res.status(404).json({ error: "Agent not found" });
       return;
     }
+
+    if (bodyParsed.data.status !== undefined) {
+      await db.insert(activityTable).values({
+        type: "agent_status_change",
+        message: `${agent.name} status changed to ${agent.status.toUpperCase()} — ${agent.module}`,
+        agentName: agent.name,
+        entityType: "agent",
+        entityId: agent.id,
+      });
+    }
+
     res.json(agent);
   } catch (err) {
     req.log.error(err);

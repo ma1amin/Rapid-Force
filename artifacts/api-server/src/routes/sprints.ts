@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { sprintsTable } from "@workspace/db";
+import { sprintsTable, activityTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import {
   CreateSprintBody,
@@ -14,9 +14,7 @@ const router = Router();
 router.get("/sprints", async (req, res) => {
   try {
     const sprints = await db.select().from(sprintsTable).orderBy(sprintsTable.createdAt);
-    res.json(
-      sprints.map((s) => ({ ...s, progress: Number(s.progress) }))
-    );
+    res.json(sprints.map((s) => ({ ...s, progress: Number(s.progress) })));
   } catch (err) {
     req.log.error(err);
     res.status(500).json({ error: "Internal server error" });
@@ -34,6 +32,15 @@ router.post("/sprints", async (req, res) => {
       .insert(sprintsTable)
       .values({ ...parsed.data })
       .returning();
+
+    await db.insert(activityTable).values({
+      type: "sprint_planning",
+      message: `${sprint.name} initialized — scope: ${sprint.objective}`,
+      agentName: "PM-1",
+      entityType: "sprint",
+      entityId: sprint.id,
+    });
+
     res.status(201).json({ ...sprint, progress: Number(sprint.progress) });
   } catch (err) {
     req.log.error(err);
@@ -88,6 +95,20 @@ router.patch("/sprints/:id", async (req, res) => {
       res.status(404).json({ error: "Sprint not found" });
       return;
     }
+
+    if (bodyParsed.data.status !== undefined) {
+      const eventType =
+        sprint.status === "active" ? "sprint_started" :
+        sprint.status === "complete" ? "sprint_complete" : "sprint_planning";
+      await db.insert(activityTable).values({
+        type: eventType,
+        message: `${sprint.name} status changed to ${sprint.status.toUpperCase()}`,
+        agentName: "CTO-1",
+        entityType: "sprint",
+        entityId: sprint.id,
+      });
+    }
+
     res.json({ ...sprint, progress: Number(sprint.progress) });
   } catch (err) {
     req.log.error(err);

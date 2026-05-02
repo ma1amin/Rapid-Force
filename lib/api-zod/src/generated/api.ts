@@ -291,6 +291,29 @@ export const CreateThreatBody = zod.object({
 });
 
 /**
+ * @summary Update threat status
+ */
+export const UpdateThreatParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateThreatBody = zod.object({
+  status: zod.enum(["active", "mitigated", "monitoring", "closed"]).optional(),
+});
+
+export const UpdateThreatResponse = zod.object({
+  id: zod.number(),
+  title: zod.string(),
+  description: zod.string(),
+  severity: zod.enum(["critical", "high", "medium", "low"]),
+  category: zod.string(),
+  source: zod.string(),
+  status: zod.enum(["active", "mitigated", "monitoring", "closed"]),
+  detectedAt: zod.coerce.date(),
+  createdAt: zod.coerce.date(),
+});
+
+/**
  * @summary Threat intelligence summary by severity
  */
 export const GetThreatsSummaryResponse = zod.object({

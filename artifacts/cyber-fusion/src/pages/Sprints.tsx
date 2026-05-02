@@ -3,6 +3,8 @@ import { useListSprints, useCreateSprint, useUpdateSprint, getListSprintsQueryKe
 import { useQueryClient } from "@tanstack/react-query";
 import { Zap, PlusCircle, CheckCircle2, Play, Pause, Clock } from "lucide-react";
 
+const REFETCH_MS = 30_000;
+
 const statusConfig: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
   planning: { label: "PLANNING", color: "text-muted-foreground border-border", icon: <Clock className="h-3 w-3" /> },
   active: { label: "ACTIVE", color: "text-primary border-primary/30 bg-primary/10", icon: <Play className="h-3 w-3" /> },
@@ -12,7 +14,7 @@ const statusConfig: Record<string, { label: string; color: string; icon: React.R
 
 export default function Sprints() {
   const qc = useQueryClient();
-  const { data: sprints, isLoading } = useListSprints();
+  const { data: sprints, isLoading } = useListSprints({ query: { refetchInterval: REFETCH_MS } });
   const createSprint = useCreateSprint({
     mutation: {
       onSuccess: () => {
@@ -63,13 +65,13 @@ export default function Sprints() {
         </button>
       </div>
 
-      {/* Velocity bar */}
-      <div className="flex flex-wrap gap-3 [&>*]:flex-1 [&>*]:min-w-28">
+      {/* Status counts */}
+      <div className="flex flex-wrap gap-3">
         {["planning", "active", "paused", "complete"].map((s) => {
           const count = sprints?.filter((sp) => sp.status === s).length ?? 0;
           const cfg = statusConfig[s];
           return (
-            <div key={s} className="bg-card border border-border p-3">
+            <div key={s} className="bg-card border border-border p-3 flex-1 min-w-28">
               <div className="text-xs font-mono text-muted-foreground">{cfg.label}</div>
               <div className={`text-2xl font-bold font-mono mt-1 ${cfg.color.split(" ")[0]}`}>{count}</div>
             </div>

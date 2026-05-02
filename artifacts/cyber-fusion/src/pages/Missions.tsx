@@ -3,6 +3,8 @@ import { useListMissions, useCreateMission, useUpdateMission, useListAgents, use
 import { useQueryClient } from "@tanstack/react-query";
 import { Target, PlusCircle, Activity, Clock, CheckCircle2, XCircle, Filter } from "lucide-react";
 
+const REFETCH_MS = 30_000;
+
 const statusIcon: Record<string, React.ReactNode> = {
   active: <Activity className="h-3 w-3 text-primary" />,
   pending: <Clock className="h-3 w-3 text-muted-foreground" />,
@@ -29,10 +31,11 @@ export default function Missions() {
   const [statusFilter, setStatusFilter] = useState<string>("");
   const { data: missions, isLoading } = useListMissions(
     statusFilter ? { status: statusFilter as any } : {},
-    { query: { queryKey: getListMissionsQueryKey(statusFilter ? { status: statusFilter as any } : {}) } }
+    { query: { queryKey: getListMissionsQueryKey(statusFilter ? { status: statusFilter as any } : {}), refetchInterval: REFETCH_MS } }
   );
-  const { data: agents } = useListAgents();
-  const { data: sprints } = useListSprints();
+  const { data: agents } = useListAgents({ query: { refetchInterval: REFETCH_MS } });
+  const { data: sprints } = useListSprints({ query: { refetchInterval: REFETCH_MS } });
+
   const createMission = useCreateMission({
     mutation: {
       onSuccess: () => {
@@ -73,11 +76,12 @@ export default function Missions() {
   const agentName = (id: number | null | undefined) =>
     id ? agents?.find((a) => a.id === id)?.name ?? `AGT-${id}` : "UNASSIGNED";
 
+  const allMissions = useListMissions({}, { query: { queryKey: getListMissionsQueryKey({}) } });
   const counts = {
-    active: missions?.filter((m) => m.status === "active").length ?? 0,
-    pending: missions?.filter((m) => m.status === "pending").length ?? 0,
-    complete: missions?.filter((m) => m.status === "complete").length ?? 0,
-    failed: missions?.filter((m) => m.status === "failed").length ?? 0,
+    active: allMissions.data?.filter((m) => m.status === "active").length ?? 0,
+    pending: allMissions.data?.filter((m) => m.status === "pending").length ?? 0,
+    complete: allMissions.data?.filter((m) => m.status === "complete").length ?? 0,
+    failed: allMissions.data?.filter((m) => m.status === "failed").length ?? 0,
   };
 
   return (
@@ -96,11 +100,14 @@ export default function Missions() {
         </button>
       </div>
 
-      {/* Counts */}
-      <div className="flex flex-wrap gap-3 [&>*]:flex-1 [&>*]:min-w-28">
+      {/* Status filter tabs */}
+      <div className="flex flex-wrap gap-3">
         {Object.entries(counts).map(([status, count]) => (
-          <div key={status} className={`bg-card border border-border p-3 cursor-pointer transition-colors ${statusFilter === status ? "border-primary" : "hover:border-muted-foreground"}`}
-            onClick={() => setStatusFilter(statusFilter === status ? "" : status)}>
+          <div
+            key={status}
+            className={`bg-card border p-3 flex-1 min-w-28 cursor-pointer transition-colors ${statusFilter === status ? "border-primary" : "border-border hover:border-muted-foreground"}`}
+            onClick={() => setStatusFilter(statusFilter === status ? "" : status)}
+          >
             <div className="text-xs font-mono text-muted-foreground flex items-center gap-1">
               {statusIcon[status]} {status.toUpperCase()}
             </div>
@@ -109,7 +116,6 @@ export default function Missions() {
         ))}
       </div>
 
-      {/* Filter indicator */}
       {statusFilter && (
         <div className="flex items-center gap-2 text-xs font-mono text-primary">
           <Filter className="h-3 w-3" />
@@ -125,44 +131,23 @@ export default function Missions() {
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label className="block text-xs font-mono text-muted-foreground mb-1">TITLE</label>
-              <input
-                type="text"
-                className="w-full bg-background border border-border px-3 py-2 text-sm font-mono focus:outline-none focus:border-primary"
-                value={form.title}
-                onChange={(e) => setForm({ ...form, title: e.target.value })}
-                placeholder="Mission title"
-                required
-              />
+              <input type="text" className="w-full bg-background border border-border px-3 py-2 text-sm font-mono focus:outline-none focus:border-primary"
+                value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Mission title" required />
             </div>
             <div>
               <label className="block text-xs font-mono text-muted-foreground mb-1">CATEGORY</label>
-              <input
-                type="text"
-                className="w-full bg-background border border-border px-3 py-2 text-sm font-mono focus:outline-none focus:border-primary"
-                value={form.category}
-                onChange={(e) => setForm({ ...form, category: e.target.value })}
-                placeholder="Security / Infrastructure / ..."
-                required
-              />
+              <input type="text" className="w-full bg-background border border-border px-3 py-2 text-sm font-mono focus:outline-none focus:border-primary"
+                value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} placeholder="Security / Infrastructure / ..." required />
             </div>
             <div className="sm:col-span-2">
               <label className="block text-xs font-mono text-muted-foreground mb-1">DESCRIPTION</label>
-              <textarea
-                className="w-full bg-background border border-border px-3 py-2 text-sm font-mono focus:outline-none focus:border-primary resize-none"
-                rows={2}
-                value={form.description}
-                onChange={(e) => setForm({ ...form, description: e.target.value })}
-                placeholder="Mission briefing..."
-                required
-              />
+              <textarea className="w-full bg-background border border-border px-3 py-2 text-sm font-mono focus:outline-none focus:border-primary resize-none"
+                rows={2} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Mission briefing..." required />
             </div>
             <div>
               <label className="block text-xs font-mono text-muted-foreground mb-1">PRIORITY</label>
-              <select
-                className="w-full bg-background border border-border px-3 py-2 text-sm font-mono focus:outline-none focus:border-primary"
-                value={form.priority}
-                onChange={(e) => setForm({ ...form, priority: e.target.value })}
-              >
+              <select className="w-full bg-background border border-border px-3 py-2 text-sm font-mono focus:outline-none focus:border-primary"
+                value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value })}>
                 <option value="critical">CRITICAL</option>
                 <option value="high">HIGH</option>
                 <option value="medium">MEDIUM</option>
@@ -171,22 +156,16 @@ export default function Missions() {
             </div>
             <div>
               <label className="block text-xs font-mono text-muted-foreground mb-1">ASSIGN AGENT</label>
-              <select
-                className="w-full bg-background border border-border px-3 py-2 text-sm font-mono focus:outline-none focus:border-primary"
-                value={form.assignedAgentId}
-                onChange={(e) => setForm({ ...form, assignedAgentId: e.target.value })}
-              >
+              <select className="w-full bg-background border border-border px-3 py-2 text-sm font-mono focus:outline-none focus:border-primary"
+                value={form.assignedAgentId} onChange={(e) => setForm({ ...form, assignedAgentId: e.target.value })}>
                 <option value="">UNASSIGNED</option>
                 {agents?.map((a) => <option key={a.id} value={a.id}>{a.name} — {a.role.toUpperCase()}</option>)}
               </select>
             </div>
             <div>
               <label className="block text-xs font-mono text-muted-foreground mb-1">SPRINT</label>
-              <select
-                className="w-full bg-background border border-border px-3 py-2 text-sm font-mono focus:outline-none focus:border-primary"
-                value={form.sprintId}
-                onChange={(e) => setForm({ ...form, sprintId: e.target.value })}
-              >
+              <select className="w-full bg-background border border-border px-3 py-2 text-sm font-mono focus:outline-none focus:border-primary"
+                value={form.sprintId} onChange={(e) => setForm({ ...form, sprintId: e.target.value })}>
                 <option value="">NO SPRINT</option>
                 {sprints?.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
               </select>

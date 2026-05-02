@@ -246,6 +246,20 @@ export interface CreateThreatBody {
   source: string;
 }
 
+export type UpdateThreatBodyStatus =
+  (typeof UpdateThreatBodyStatus)[keyof typeof UpdateThreatBodyStatus];
+
+export const UpdateThreatBodyStatus = {
+  active: "active",
+  mitigated: "mitigated",
+  monitoring: "monitoring",
+  closed: "closed",
+} as const;
+
+export interface UpdateThreatBody {
+  status?: UpdateThreatBodyStatus;
+}
+
 export interface ThreatsSummary {
   total: number;
   critical: number;

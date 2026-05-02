@@ -1,7 +1,9 @@
 import { useState } from "react";
-import { useListThreats, useCreateThreat, useGetThreatsSummary, getListThreatsQueryKey, getGetThreatsSummaryQueryKey } from "@workspace/api-client-react";
+import { useListThreats, useCreateThreat, useUpdateThreat, useGetThreatsSummary, getListThreatsQueryKey, getGetThreatsSummaryQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { ShieldAlert, PlusCircle, AlertTriangle, Shield, Eye, XCircle } from "lucide-react";
+
+const REFETCH_MS = 30_000;
 
 const severityColor: Record<string, string> = {
   critical: "text-destructive border-destructive/40 bg-destructive/10",
@@ -10,18 +12,11 @@ const severityColor: Record<string, string> = {
   low: "text-muted-foreground border-border",
 };
 
-const statusIcon: Record<string, React.ReactNode> = {
-  active: <AlertTriangle className="h-3 w-3 text-destructive" />,
-  monitoring: <Eye className="h-3 w-3 text-accent" />,
-  mitigated: <Shield className="h-3 w-3 text-primary" />,
-  closed: <XCircle className="h-3 w-3 text-muted-foreground" />,
-};
-
-const statusColor: Record<string, string> = {
-  active: "text-destructive",
-  monitoring: "text-accent",
-  mitigated: "text-primary",
-  closed: "text-muted-foreground",
+const statusConfig: Record<string, { icon: React.ReactNode; color: string; label: string }> = {
+  active: { icon: <AlertTriangle className="h-3 w-3" />, color: "text-destructive border-destructive/30 bg-destructive/10", label: "ACTIVE" },
+  monitoring: { icon: <Eye className="h-3 w-3" />, color: "text-accent border-accent/30 bg-accent/10", label: "MONITORING" },
+  mitigated: { icon: <Shield className="h-3 w-3" />, color: "text-primary border-primary/30 bg-primary/10", label: "MITIGATED" },
+  closed: { icon: <XCircle className="h-3 w-3" />, color: "text-muted-foreground border-border", label: "CLOSED" },
 };
 
 export default function Threats() {
@@ -29,9 +24,10 @@ export default function Threats() {
   const [severityFilter, setSeverityFilter] = useState<string>("");
   const { data: threats, isLoading } = useListThreats(
     severityFilter ? { severity: severityFilter as any } : {},
-    { query: { queryKey: getListThreatsQueryKey(severityFilter ? { severity: severityFilter as any } : {}) } }
+    { query: { queryKey: getListThreatsQueryKey(severityFilter ? { severity: severityFilter as any } : {}), refetchInterval: REFETCH_MS } }
   );
-  const { data: summary } = useGetThreatsSummary();
+  const { data: summary } = useGetThreatsSummary({ query: { refetchInterval: REFETCH_MS } });
+
   const createThreat = useCreateThreat({
     mutation: {
       onSuccess: () => {
@@ -43,12 +39,25 @@ export default function Threats() {
     },
   });
 
+  const updateThreat = useUpdateThreat({
+    mutation: {
+      onSuccess: () => {
+        qc.invalidateQueries({ queryKey: getListThreatsQueryKey() });
+        qc.invalidateQueries({ queryKey: getGetThreatsSummaryQueryKey() });
+      },
+    },
+  });
+
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ title: "", description: "", severity: "medium", category: "", source: "" });
 
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
     createThreat.mutate({ data: form as any });
+  };
+
+  const handleStatusChange = (id: number, status: string) => {
+    updateThreat.mutate({ id, data: { status: status as any } });
   };
 
   const sorted = [...(threats ?? [])].sort((a, b) => {
@@ -74,7 +83,7 @@ export default function Threats() {
 
       {/* Summary */}
       {summary && (
-        <div className="flex flex-wrap gap-3 [&>*]:flex-1 [&>*]:min-w-20">
+        <div className="flex flex-wrap gap-3">
           {[
             { label: "TOTAL", value: summary.total },
             { label: "CRITICAL", value: summary.critical, cls: "text-destructive cursor-pointer", filter: "critical" },
@@ -86,7 +95,7 @@ export default function Threats() {
           ].map(({ label, value, cls = "text-foreground", filter }) => (
             <div
               key={label}
-              className={`bg-card border p-3 transition-colors ${severityFilter === filter ? "border-primary" : "border-border hover:border-muted-foreground"} ${filter ? "cursor-pointer" : ""}`}
+              className={`bg-card border p-3 flex-1 min-w-16 transition-colors ${severityFilter === filter ? "border-primary" : "border-border hover:border-muted-foreground"} ${filter ? "cursor-pointer" : ""}`}
               onClick={() => filter && setSeverityFilter(severityFilter === filter ? "" : filter)}
             >
               <div className="text-xs font-mono text-muted-foreground">{label}</div>
@@ -96,7 +105,6 @@ export default function Threats() {
         </div>
       )}
 
-      {/* Filter indicator */}
       {severityFilter && (
         <div className="flex items-center gap-2 text-xs font-mono text-primary">
           FILTERING SEVERITY: {severityFilter.toUpperCase()}
@@ -111,22 +119,13 @@ export default function Threats() {
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label className="block text-xs font-mono text-muted-foreground mb-1">TITLE</label>
-              <input
-                type="text"
-                className="w-full bg-background border border-border px-3 py-2 text-sm font-mono focus:outline-none focus:border-primary"
-                value={form.title}
-                onChange={(e) => setForm({ ...form, title: e.target.value })}
-                placeholder="Threat name / CVE"
-                required
-              />
+              <input type="text" className="w-full bg-background border border-border px-3 py-2 text-sm font-mono focus:outline-none focus:border-primary"
+                value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Threat name / CVE" required />
             </div>
             <div>
               <label className="block text-xs font-mono text-muted-foreground mb-1">SEVERITY</label>
-              <select
-                className="w-full bg-background border border-border px-3 py-2 text-sm font-mono focus:outline-none focus:border-primary"
-                value={form.severity}
-                onChange={(e) => setForm({ ...form, severity: e.target.value })}
-              >
+              <select className="w-full bg-background border border-border px-3 py-2 text-sm font-mono focus:outline-none focus:border-primary"
+                value={form.severity} onChange={(e) => setForm({ ...form, severity: e.target.value })}>
                 <option value="critical">CRITICAL</option>
                 <option value="high">HIGH</option>
                 <option value="medium">MEDIUM</option>
@@ -135,36 +134,18 @@ export default function Threats() {
             </div>
             <div>
               <label className="block text-xs font-mono text-muted-foreground mb-1">CATEGORY</label>
-              <input
-                type="text"
-                className="w-full bg-background border border-border px-3 py-2 text-sm font-mono focus:outline-none focus:border-primary"
-                value={form.category}
-                onChange={(e) => setForm({ ...form, category: e.target.value })}
-                placeholder="CVE / Supply Chain / ..."
-                required
-              />
+              <input type="text" className="w-full bg-background border border-border px-3 py-2 text-sm font-mono focus:outline-none focus:border-primary"
+                value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} placeholder="CVE / Supply Chain / ..." required />
             </div>
             <div>
               <label className="block text-xs font-mono text-muted-foreground mb-1">SOURCE</label>
-              <input
-                type="text"
-                className="w-full bg-background border border-border px-3 py-2 text-sm font-mono focus:outline-none focus:border-primary"
-                value={form.source}
-                onChange={(e) => setForm({ ...form, source: e.target.value })}
-                placeholder="NVD Feed / Red Team / ..."
-                required
-              />
+              <input type="text" className="w-full bg-background border border-border px-3 py-2 text-sm font-mono focus:outline-none focus:border-primary"
+                value={form.source} onChange={(e) => setForm({ ...form, source: e.target.value })} placeholder="NVD Feed / Red Team / ..." required />
             </div>
             <div className="sm:col-span-2">
               <label className="block text-xs font-mono text-muted-foreground mb-1">DESCRIPTION</label>
-              <textarea
-                className="w-full bg-background border border-border px-3 py-2 text-sm font-mono focus:outline-none focus:border-primary resize-none"
-                rows={2}
-                value={form.description}
-                onChange={(e) => setForm({ ...form, description: e.target.value })}
-                placeholder="Threat details..."
-                required
-              />
+              <textarea className="w-full bg-background border border-border px-3 py-2 text-sm font-mono focus:outline-none focus:border-primary resize-none"
+                rows={2} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Threat details..." required />
             </div>
           </div>
           <div className="flex gap-3">
@@ -183,33 +164,45 @@ export default function Threats() {
         <div className="text-sm font-mono text-muted-foreground">SCANNING THREAT DATABASE...</div>
       ) : (
         <div className="space-y-2">
-          {sorted.map((threat) => (
-            <div key={threat.id} className="bg-card border border-border p-4 space-y-2 hover:border-primary/30 transition-colors">
-              <div className="flex items-start gap-3 justify-between">
-                <div className="flex items-start gap-3 flex-1 min-w-0">
-                  <ShieldAlert className="h-4 w-4 shrink-0 mt-0.5 text-muted-foreground" />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap mb-1">
-                      <span className="font-medium text-sm">{threat.title}</span>
-                      <span className={`text-xs font-mono border px-1.5 py-0.5 ${severityColor[threat.severity]}`}>
-                        {threat.severity.toUpperCase()}
-                      </span>
-                      <span className="text-xs font-mono text-muted-foreground border border-border px-1.5 py-0.5">{threat.category}</span>
+          {sorted.map((threat) => {
+            const sc = statusConfig[threat.status];
+            return (
+              <div key={threat.id} className="bg-card border border-border p-4 space-y-3 hover:border-primary/30 transition-colors">
+                <div className="flex items-start gap-3 justify-between">
+                  <div className="flex items-start gap-3 flex-1 min-w-0">
+                    <ShieldAlert className="h-4 w-4 shrink-0 mt-0.5 text-muted-foreground" />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap mb-1">
+                        <span className="font-medium text-sm">{threat.title}</span>
+                        <span className={`text-xs font-mono border px-1.5 py-0.5 ${severityColor[threat.severity]}`}>
+                          {threat.severity.toUpperCase()}
+                        </span>
+                        <span className="text-xs font-mono text-muted-foreground border border-border px-1.5 py-0.5">{threat.category}</span>
+                      </div>
+                      <div className="text-xs text-muted-foreground line-clamp-2">{threat.description}</div>
                     </div>
-                    <div className="text-xs text-muted-foreground line-clamp-2">{threat.description}</div>
+                  </div>
+                  {/* Inline status selector */}
+                  <div className="shrink-0">
+                    <select
+                      className={`text-xs font-mono border px-2 py-1 bg-transparent focus:outline-none cursor-pointer ${sc.color}`}
+                      value={threat.status}
+                      onChange={(e) => handleStatusChange(threat.id, e.target.value)}
+                    >
+                      <option value="active">ACTIVE</option>
+                      <option value="monitoring">MONITORING</option>
+                      <option value="mitigated">MITIGATED</option>
+                      <option value="closed">CLOSED</option>
+                    </select>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  {statusIcon[threat.status]}
-                  <span className={`text-xs font-mono ${statusColor[threat.status]}`}>{threat.status.toUpperCase()}</span>
+                <div className="flex gap-4 text-xs font-mono text-muted-foreground pl-7">
+                  <span>SOURCE: <span className="text-foreground">{threat.source}</span></span>
+                  <span>DETECTED: <span className="text-foreground">{new Date(threat.detectedAt).toLocaleDateString()}</span></span>
                 </div>
               </div>
-              <div className="flex gap-4 text-xs font-mono text-muted-foreground pl-7">
-                <span>SOURCE: <span className="text-foreground">{threat.source}</span></span>
-                <span>DETECTED: <span className="text-foreground">{new Date(threat.detectedAt).toLocaleDateString()}</span></span>
-              </div>
-            </div>
-          ))}
+            );
+          })}
           {sorted.length === 0 && (
             <div className="text-center py-12 font-mono text-sm text-muted-foreground">
               <ShieldAlert className="h-8 w-8 mx-auto mb-3 opacity-30" />

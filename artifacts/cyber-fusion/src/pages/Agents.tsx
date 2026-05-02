@@ -2,6 +2,9 @@ import { useState } from "react";
 import { useListAgents, useGetAgentsSummary, useCreateAgent, useUpdateAgent, getListAgentsQueryKey, getGetAgentsSummaryQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Cpu, PlusCircle, Activity, Clock, Radio, WifiOff } from "lucide-react";
+import AgentDetailSheet from "@/components/agents/AgentDetailSheet";
+
+const REFETCH_MS = 30_000;
 
 const statusIcon: Record<string, React.ReactNode> = {
   active: <Activity className="h-3 w-3 text-primary" />,
@@ -29,10 +32,14 @@ const roleLabel: Record<string, string> = {
   documentation: "DOCUMENTATION",
 };
 
+type Agent = NonNullable<ReturnType<typeof useListAgents>["data"]>[number];
+
 export default function Agents() {
   const qc = useQueryClient();
-  const { data: agents, isLoading } = useListAgents();
-  const { data: summary } = useGetAgentsSummary();
+  const { data: agents, isLoading } = useListAgents({ query: { refetchInterval: REFETCH_MS } });
+  const { data: summary } = useGetAgentsSummary({ query: { refetchInterval: REFETCH_MS } });
+  const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
+
   const createAgent = useCreateAgent({
     mutation: {
       onSuccess: () => {
@@ -82,7 +89,7 @@ export default function Agents() {
       </div>
 
       {/* Summary bar */}
-      <div className="flex flex-wrap gap-3 [&>*]:flex-1 [&>*]:min-w-28">
+      <div className="flex flex-wrap gap-3">
         {[
           { label: "TOTAL", value: summary?.total ?? "—" },
           { label: "ACTIVE", value: summary?.active ?? "—", accent: true },
@@ -91,7 +98,7 @@ export default function Agents() {
           { label: "OFFLINE", value: summary?.offline ?? "—", danger: true },
           { label: "MISSIONS", value: summary?.totalMissionsCompleted ?? "—", accent: true },
         ].map(({ label, value, accent, warn, danger }) => (
-          <div key={label} className="bg-card border border-border p-3">
+          <div key={label} className="bg-card border border-border p-3 flex-1 min-w-24">
             <div className="text-xs font-mono text-muted-foreground">{label}</div>
             <div className={`text-xl font-bold font-mono mt-1 ${danger ? "text-destructive" : warn ? "text-accent" : accent ? "text-primary" : "text-foreground"}`}>
               {value}
@@ -157,7 +164,11 @@ export default function Agents() {
       ) : (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {agents?.map((agent) => (
-            <div key={agent.id} className="bg-card border border-border p-4 space-y-3 hover:border-primary/50 transition-colors">
+            <div
+              key={agent.id}
+              className="bg-card border border-border p-4 space-y-3 hover:border-primary/50 transition-colors cursor-pointer"
+              onClick={() => setSelectedAgent(agent)}
+            >
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-2">
                   <Cpu className="h-4 w-4 text-muted-foreground shrink-0" />
@@ -182,7 +193,7 @@ export default function Agents() {
                   <span className="text-foreground">{agent.tasksActive}</span>
                 </div>
               </div>
-              <div className="pt-1 border-t border-border">
+              <div className="pt-1 border-t border-border" onClick={(e) => e.stopPropagation()}>
                 <select
                   className="w-full bg-background border border-border px-2 py-1 text-xs font-mono focus:outline-none focus:border-primary"
                   value={agent.status}
@@ -197,6 +208,11 @@ export default function Agents() {
             </div>
           ))}
         </div>
+      )}
+
+      {/* Agent detail sheet */}
+      {selectedAgent && (
+        <AgentDetailSheet agent={selectedAgent} onClose={() => setSelectedAgent(null)} />
       )}
     </div>
   );

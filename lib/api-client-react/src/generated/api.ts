@@ -35,6 +35,7 @@ import type {
   UpdateAgentBody,
   UpdateMissionBody,
   UpdateSprintBody,
+  UpdateThreatBody,
 } from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
@@ -1303,6 +1304,93 @@ export const useCreateThreat = <
   TContext
 > => {
   return useMutation(getCreateThreatMutationOptions(options));
+};
+
+/**
+ * @summary Update threat status
+ */
+export const getUpdateThreatUrl = (id: number) => {
+  return `/api/threats/${id}`;
+};
+
+export const updateThreat = async (
+  id: number,
+  updateThreatBody: UpdateThreatBody,
+  options?: RequestInit,
+): Promise<Threat> => {
+  return customFetch<Threat>(getUpdateThreatUrl(id), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateThreatBody),
+  });
+};
+
+export const getUpdateThreatMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateThreat>>,
+    TError,
+    { id: number; data: BodyType<UpdateThreatBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateThreat>>,
+  TError,
+  { id: number; data: BodyType<UpdateThreatBody> },
+  TContext
+> => {
+  const mutationKey = ["updateThreat"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateThreat>>,
+    { id: number; data: BodyType<UpdateThreatBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updateThreat(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateThreatMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateThreat>>
+>;
+export type UpdateThreatMutationBody = BodyType<UpdateThreatBody>;
+export type UpdateThreatMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update threat status
+ */
+export const useUpdateThreat = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateThreat>>,
+    TError,
+    { id: number; data: BodyType<UpdateThreatBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateThreat>>,
+  TError,
+  { id: number; data: BodyType<UpdateThreatBody> },
+  TContext
+> => {
+  return useMutation(getUpdateThreatMutationOptions(options));
 };
 
 /**
