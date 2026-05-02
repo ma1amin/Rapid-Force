@@ -1,6 +1,5 @@
 import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { BookOpen, Play, Pause, CheckCircle, Clock, AlertTriangle, Plus, Search, Filter, ChevronRight, Zap, Bot, RefreshCw, Eye } from "lucide-react";
+import { BookOpen, Play, Pause, Clock, AlertTriangle, Plus, Search, ChevronRight, Zap, Bot, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -160,7 +159,8 @@ export default function Playbooks() {
           <h1 className="text-xl font-bold tracking-widest text-cyan-400 font-mono">AI PLAYBOOKS</h1>
           <p className="text-xs text-slate-500 mt-0.5 font-mono">Automated response workflows · SOAR engine</p>
         </div>
-        <Button className="bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/20 font-mono text-xs gap-2">
+        <Button onClick={() => toast({ title: "New Playbook", description: "Playbook builder coming in the next release. Use templates below to get started." })}
+          className="bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/20 font-mono text-xs gap-2">
           <Plus className="w-4 h-4" /> NEW PLAYBOOK
         </Button>
       </div>

@@ -116,7 +116,8 @@ export default function PredictiveEWS() {
             <span className="font-bold">{critical} CRITICAL prediction signal{critical > 1 ? "s" : ""} active</span>
             {" — "} Immediate review and mitigation recommended.
           </div>
-          <Button size="sm" className="ml-auto bg-red-500/20 border border-red-500/40 text-red-300 hover:bg-red-500/30 font-mono text-xs h-7">
+          <Button size="sm" onClick={() => toast({ title: "Escalated to CISO", description: `${critical} critical signal${critical > 1 ? "s" : ""} escalated. SOC lead and CISO have been notified via secure channel.` })}
+            className="ml-auto bg-red-500/20 border border-red-500/40 text-red-300 hover:bg-red-500/30 font-mono text-xs h-7">
             ESCALATE
           </Button>
         </div>

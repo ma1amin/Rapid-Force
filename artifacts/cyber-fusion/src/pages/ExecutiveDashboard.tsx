@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { LayoutDashboard, Shield, TrendingUp, TrendingDown, AlertTriangle, CheckCircle, Clock, Download, Calendar, BarChart3, Activity, Target, Zap } from "lucide-react";
+import { Shield, TrendingUp, TrendingDown, AlertTriangle, Clock, Download, Activity, Target } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/hooks/use-toast";
 
 const PERIODS = ["Last 7 Days", "Last 30 Days", "Last Quarter", "YTD"];
 
@@ -84,8 +84,42 @@ function GaugeRing({ value, label, color }: { value: number; label: string; colo
 }
 
 export default function ExecutiveDashboard() {
+  const { toast } = useToast();
   const [period, setPeriod] = useState<keyof typeof KPI_DATA>("Last 30 Days");
   const kpi = KPI_DATA[period];
+
+  function exportReport() {
+    const lines = [
+      `RAPID FORCE CYBER FUSION — EXECUTIVE SECURITY REPORT`,
+      `Period: ${period}`,
+      `Generated: ${new Date().toLocaleString()}`,
+      ``,
+      `OVERALL SECURITY POSTURE SCORE: ${kpi.secScore}/100 (${kpi.scoreChange > 0 ? "+" : ""}${kpi.scoreChange} pts)`,
+      `PATCH COMPLIANCE: ${kpi.patchCompliance}%`,
+      `MFA COVERAGE: ${kpi.mfa}%`,
+      ``,
+      `KEY METRICS`,
+      `  Mean Time to Respond: ${kpi.mttr}`,
+      `  Security Incidents: ${kpi.incidents}`,
+      `  Threats Blocked: ${kpi.threats.toLocaleString()}`,
+      `  SLA Breaches: ${kpi.slaBreaches}`,
+      `  Critical Open Items: ${kpi.criticalOpen}`,
+      ``,
+      `COMPLIANCE POSTURE`,
+      `  NIST CSF: 82%`,
+      `  ISO 27001: 76%`,
+      `  SOC 2 Type II: 91%`,
+      `  HIPAA: 68%`,
+      `  CIS Controls v8: 79%`,
+    ];
+    const blob = new Blob([lines.join("\n")], { type: "text/plain" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `executive-report-${period.replace(/\s+/g, "-").toLowerCase()}-${Date.now()}.txt`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+    toast({ title: "Report exported", description: `Executive security report for ${period} downloaded.` });
+  }
 
   return (
     <div className="p-6 space-y-6">
@@ -104,8 +138,8 @@ export default function ExecutiveDashboard() {
                 )}>{p}</button>
             ))}
           </div>
-          <Button className="bg-slate-800 border border-slate-700/50 text-slate-300 hover:bg-slate-700 font-mono text-xs gap-2 h-8">
-            <Download className="w-3.5 h-3.5" /> EXPORT PDF
+          <Button onClick={exportReport} className="bg-slate-800 border border-slate-700/50 text-slate-300 hover:bg-slate-700 font-mono text-xs gap-2 h-8">
+            <Download className="w-3.5 h-3.5" /> EXPORT REPORT
           </Button>
         </div>
       </div>
