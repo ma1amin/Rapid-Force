@@ -75,7 +75,7 @@ function Router() {
         <AdminProtectedRoute><AdminShell><AdminAnnouncements /></AdminShell></AdminProtectedRoute>
       </Route>
       <Route path="/admin/license-admin">
-        <AdminProtectedRoute><AdminShell><LicenseAdmin /></AdminShell></AdminProtectedRoute>
+        <AdminProtectedRoute><AdminShell><LicenseProvider><LicenseAdmin /></LicenseProvider></AdminShell></AdminProtectedRoute>
       </Route>
       <Route path="/admin/audit">
         <AdminProtectedRoute><AdminShell><AdminAuditLog /></AdminShell></AdminProtectedRoute>
