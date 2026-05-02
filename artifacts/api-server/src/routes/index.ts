@@ -10,11 +10,13 @@ import incidentsRouter from "./incidents";
 import copilotRouter from "./copilot";
 import authRouter from "./auth";
 import licensesRouter from "./licenses";
+import adminRouter from "./admin";
 
 const router: IRouter = Router();
 
 router.use(authRouter);
 router.use(licensesRouter);
+router.use(adminRouter);
 router.use(healthRouter);
 router.use(agentsRouter);
 router.use(sprintsRouter);

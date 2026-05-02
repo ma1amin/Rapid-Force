@@ -37,3 +37,9 @@ externalPort = 3000
 [[ports]]
 localPort = 18259
 externalPort = 80
+
+[userenv]
+
+[userenv.shared]
+PLATFORM_ADMIN_EMAIL = "admin@rapidforce.io"
+PLATFORM_ADMIN_PASSWORD = "RapidForce@Admin2024"
