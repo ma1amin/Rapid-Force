@@ -1,16 +1,22 @@
 import { useState, useEffect } from "react";
 import Sidebar from "./Sidebar";
 import GlobalSearch from "@/components/search/GlobalSearch";
+import CopilotPanel from "@/components/copilot/CopilotPanel";
 import { Search } from "lucide-react";
 
 export default function Shell({ children }: { children: React.ReactNode }) {
   const [searchOpen, setSearchOpen] = useState(false);
+  const [copilotOpen, setCopilotOpen] = useState(false);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
         e.preventDefault();
         setSearchOpen((v) => !v);
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key === "/") {
+        e.preventDefault();
+        setCopilotOpen((v) => !v);
       }
     };
     window.addEventListener("keydown", handler);
@@ -19,7 +25,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-background">
-      <Sidebar />
+      <Sidebar onCopilotOpen={() => setCopilotOpen((v) => !v)} copilotOpen={copilotOpen} />
       <div className="flex flex-1 flex-col overflow-hidden">
         {/* Top header bar */}
         <div className="flex items-center justify-between border-b border-border bg-sidebar px-6 py-2 shrink-0">
@@ -42,18 +48,26 @@ export default function Shell({ children }: { children: React.ReactNode }) {
           </div>
         </div>
 
-        <main className="flex-1 overflow-y-auto relative">
-          {/* Subtle grid pattern overlay */}
-          <div
-            className="absolute inset-0 pointer-events-none opacity-[0.03]"
-            style={{
-              backgroundImage:
-                "linear-gradient(hsl(var(--primary)) 1px, transparent 1px), linear-gradient(90deg, hsl(var(--primary)) 1px, transparent 1px)",
-              backgroundSize: "40px 40px",
-            }}
-          />
-          <div className="relative z-10 h-full p-8">{children}</div>
-        </main>
+        <div className="flex flex-1 overflow-hidden">
+          <main className="flex-1 overflow-y-auto relative">
+            <div
+              className="absolute inset-0 pointer-events-none opacity-[0.03]"
+              style={{
+                backgroundImage:
+                  "linear-gradient(hsl(var(--primary)) 1px, transparent 1px), linear-gradient(90deg, hsl(var(--primary)) 1px, transparent 1px)",
+                backgroundSize: "40px 40px",
+              }}
+            />
+            <div className="relative z-10 h-full p-8">{children}</div>
+          </main>
+
+          {/* Copilot panel — slides in on the right */}
+          {copilotOpen && (
+            <div className="w-96 border-l border-border bg-card flex-shrink-0 overflow-hidden">
+              <CopilotPanel onClose={() => setCopilotOpen(false)} />
+            </div>
+          )}
+        </div>
       </div>
 
       {searchOpen && <GlobalSearch onClose={() => setSearchOpen(false)} />}

@@ -345,3 +345,195 @@ export const ListActivityResponseItem = zod.object({
   createdAt: zod.coerce.date(),
 });
 export const ListActivityResponse = zod.array(ListActivityResponseItem);
+
+/**
+ * @summary List all detection rules
+ */
+export const ListDetectionsResponseItem = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  description: zod.string(),
+  type: zod.enum(["sigma", "yara", "query", "ioc", "behavioral"]),
+  ruleContent: zod.string(),
+  severity: zod.enum(["critical", "high", "medium", "low", "informational"]),
+  status: zod.enum(["active", "testing", "disabled", "review"]),
+  mitreTechnique: zod.string().nullish(),
+  mitreTactic: zod.string().nullish(),
+  tags: zod.string().nullish(),
+  falsePositiveRate: zod.string().nullish(),
+  truePositiveCount: zod.string().nullish(),
+  author: zod.string().nullish(),
+  version: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+export const ListDetectionsResponse = zod.array(ListDetectionsResponseItem);
+
+/**
+ * @summary Create a new detection rule
+ */
+export const CreateDetectionBody = zod.object({
+  name: zod.string(),
+  description: zod.string(),
+  type: zod.enum(["sigma", "yara", "query", "ioc", "behavioral"]),
+  ruleContent: zod.string(),
+  severity: zod.enum(["critical", "high", "medium", "low", "informational"]),
+  mitreTechnique: zod.string().optional(),
+  mitreTactic: zod.string().optional(),
+  tags: zod.string().optional(),
+  author: zod.string().optional(),
+});
+
+/**
+ * @summary Detection engineering summary stats
+ */
+export const GetDetectionsSummaryResponse = zod.object({
+  total: zod.number(),
+  active: zod.number(),
+  testing: zod.number(),
+  disabled: zod.number(),
+  review: zod.number(),
+  sigma: zod.number(),
+  yara: zod.number(),
+  ioc: zod.number(),
+  behavioral: zod.number(),
+  critical: zod.number(),
+  high: zod.number(),
+});
+
+/**
+ * @summary Update detection status or content
+ */
+export const UpdateDetectionParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateDetectionBody = zod.object({
+  status: zod.enum(["active", "testing", "disabled", "review"]).optional(),
+  ruleContent: zod.string().optional(),
+  severity: zod
+    .enum(["critical", "high", "medium", "low", "informational"])
+    .optional(),
+});
+
+export const UpdateDetectionResponse = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  description: zod.string(),
+  type: zod.enum(["sigma", "yara", "query", "ioc", "behavioral"]),
+  ruleContent: zod.string(),
+  severity: zod.enum(["critical", "high", "medium", "low", "informational"]),
+  status: zod.enum(["active", "testing", "disabled", "review"]),
+  mitreTechnique: zod.string().nullish(),
+  mitreTactic: zod.string().nullish(),
+  tags: zod.string().nullish(),
+  falsePositiveRate: zod.string().nullish(),
+  truePositiveCount: zod.string().nullish(),
+  author: zod.string().nullish(),
+  version: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary List all incidents
+ */
+export const ListIncidentsResponseItem = zod.object({
+  id: zod.number(),
+  title: zod.string(),
+  description: zod.string(),
+  severity: zod.enum(["critical", "high", "medium", "low"]),
+  status: zod.enum([
+    "open",
+    "investigating",
+    "contained",
+    "eradicated",
+    "closed",
+  ]),
+  type: zod.string(),
+  assignedAgentId: zod.number().nullish(),
+  detectionId: zod.number().nullish(),
+  affectedSystems: zod.string().nullish(),
+  iocIndicators: zod.string().nullish(),
+  playbookSteps: zod.string().nullish(),
+  attackVector: zod.string().nullish(),
+  mitreTechnique: zod.string().nullish(),
+  containmentActions: zod.string().nullish(),
+  timeToDetect: zod.number().nullish(),
+  resolvedAt: zod.coerce.date().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+export const ListIncidentsResponse = zod.array(ListIncidentsResponseItem);
+
+/**
+ * @summary Open a new incident
+ */
+export const CreateIncidentBody = zod.object({
+  title: zod.string(),
+  description: zod.string(),
+  severity: zod.enum(["critical", "high", "medium", "low"]),
+  type: zod.string(),
+  assignedAgentId: zod.number().optional(),
+  affectedSystems: zod.string().optional(),
+  iocIndicators: zod.string().optional(),
+  attackVector: zod.string().optional(),
+  mitreTechnique: zod.string().optional(),
+});
+
+/**
+ * @summary Incident response summary stats
+ */
+export const GetIncidentsSummaryResponse = zod.object({
+  total: zod.number(),
+  open: zod.number(),
+  investigating: zod.number(),
+  contained: zod.number(),
+  closed: zod.number(),
+  critical: zod.number(),
+  high: zod.number(),
+  mttr: zod.number().nullable(),
+});
+
+/**
+ * @summary Update incident status or details
+ */
+export const UpdateIncidentParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateIncidentBody = zod.object({
+  status: zod
+    .enum(["open", "investigating", "contained", "eradicated", "closed"])
+    .optional(),
+  assignedAgentId: zod.number().optional(),
+  containmentActions: zod.string().optional(),
+  playbookSteps: zod.string().optional(),
+});
+
+export const UpdateIncidentResponse = zod.object({
+  id: zod.number(),
+  title: zod.string(),
+  description: zod.string(),
+  severity: zod.enum(["critical", "high", "medium", "low"]),
+  status: zod.enum([
+    "open",
+    "investigating",
+    "contained",
+    "eradicated",
+    "closed",
+  ]),
+  type: zod.string(),
+  assignedAgentId: zod.number().nullish(),
+  detectionId: zod.number().nullish(),
+  affectedSystems: zod.string().nullish(),
+  iocIndicators: zod.string().nullish(),
+  playbookSteps: zod.string().nullish(),
+  attackVector: zod.string().nullish(),
+  mitreTechnique: zod.string().nullish(),
+  containmentActions: zod.string().nullish(),
+  timeToDetect: zod.number().nullish(),
+  resolvedAt: zod.coerce.date().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});

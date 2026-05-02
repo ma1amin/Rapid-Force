@@ -3,3 +3,5 @@ export * from "./sprints";
 export * from "./missions";
 export * from "./threats";
 export * from "./activity";
+export * from "./detections";
+export * from "./incidents";

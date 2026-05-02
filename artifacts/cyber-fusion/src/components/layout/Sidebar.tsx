@@ -5,7 +5,10 @@ import {
   Zap, 
   Target, 
   ShieldAlert, 
-  ActivitySquare 
+  ActivitySquare,
+  FileCode2,
+  Siren,
+  Bot
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -15,10 +18,17 @@ const navigation = [
   { name: "Sprint Ops", href: "/sprints", icon: Zap },
   { name: "Missions", href: "/missions", icon: Target },
   { name: "Threat Intel", href: "/threats", icon: ShieldAlert },
+  { name: "Detection Eng.", href: "/detections", icon: FileCode2 },
+  { name: "Incidents", href: "/incidents", icon: Siren },
   { name: "Event Log", href: "/activity", icon: ActivitySquare },
 ];
 
-export default function Sidebar() {
+interface Props {
+  onCopilotOpen?: () => void;
+  copilotOpen?: boolean;
+}
+
+export default function Sidebar({ onCopilotOpen, copilotOpen }: Props) {
   const [location] = useLocation();
 
   return (
@@ -61,7 +71,24 @@ export default function Sidebar() {
         })}
       </nav>
 
-      <div className="p-4 border-t border-border mt-auto">
+      {/* AI Copilot button */}
+      <div className="px-3 py-3 border-t border-border">
+        <button
+          onClick={onCopilotOpen}
+          className={cn(
+            "w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium transition-colors border border-dashed",
+            copilotOpen
+              ? "border-primary text-primary bg-primary/10"
+              : "border-primary/30 text-primary/70 hover:border-primary hover:text-primary hover:bg-primary/5"
+          )}
+        >
+          <Bot className="h-4 w-4 shrink-0" />
+          <span>AI Copilot</span>
+          <span className="ml-auto text-xs font-mono text-muted-foreground">⌘/</span>
+        </button>
+      </div>
+
+      <div className="p-4 border-t border-border">
         <div className="flex items-center justify-between text-xs font-mono">
           <span className="text-muted-foreground">SYS_STATUS</span>
           <span className="text-primary flex items-center gap-1">

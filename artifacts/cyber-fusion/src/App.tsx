@@ -11,6 +11,8 @@ import Sprints from "@/pages/Sprints";
 import Missions from "@/pages/Missions";
 import Threats from "@/pages/Threats";
 import Activity from "@/pages/Activity";
+import Detections from "@/pages/Detections";
+import Incidents from "@/pages/Incidents";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -30,6 +32,8 @@ function Router() {
         <Route path="/sprints" component={Sprints} />
         <Route path="/missions" component={Missions} />
         <Route path="/threats" component={Threats} />
+        <Route path="/detections" component={Detections} />
+        <Route path="/incidents" component={Incidents} />
         <Route path="/activity" component={Activity} />
         <Route component={NotFound} />
       </Switch>
@@ -38,7 +42,6 @@ function Router() {
 }
 
 function App() {
-  // Force dark mode for this app
   useEffect(() => {
     document.documentElement.classList.add("dark");
   }, []);

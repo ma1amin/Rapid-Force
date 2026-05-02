@@ -5,6 +5,9 @@ import sprintsRouter from "./sprints";
 import missionsRouter from "./missions";
 import threatsRouter from "./threats";
 import activityRouter from "./activity";
+import detectionsRouter from "./detections";
+import incidentsRouter from "./incidents";
+import copilotRouter from "./copilot";
 
 const router: IRouter = Router();
 
@@ -14,5 +17,8 @@ router.use(sprintsRouter);
 router.use(missionsRouter);
 router.use(threatsRouter);
 router.use(activityRouter);
+router.use(detectionsRouter);
+router.use(incidentsRouter);
+router.use(copilotRouter);
 
 export default router;

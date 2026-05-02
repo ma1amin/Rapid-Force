@@ -280,6 +280,224 @@ export interface ActivityEvent {
   createdAt: string;
 }
 
+export type DetectionType = (typeof DetectionType)[keyof typeof DetectionType];
+
+export const DetectionType = {
+  sigma: "sigma",
+  yara: "yara",
+  query: "query",
+  ioc: "ioc",
+  behavioral: "behavioral",
+} as const;
+
+export type DetectionSeverity =
+  (typeof DetectionSeverity)[keyof typeof DetectionSeverity];
+
+export const DetectionSeverity = {
+  critical: "critical",
+  high: "high",
+  medium: "medium",
+  low: "low",
+  informational: "informational",
+} as const;
+
+export type DetectionStatus =
+  (typeof DetectionStatus)[keyof typeof DetectionStatus];
+
+export const DetectionStatus = {
+  active: "active",
+  testing: "testing",
+  disabled: "disabled",
+  review: "review",
+} as const;
+
+export interface Detection {
+  id: number;
+  name: string;
+  description: string;
+  type: DetectionType;
+  ruleContent: string;
+  severity: DetectionSeverity;
+  status: DetectionStatus;
+  mitreTechnique?: string | null;
+  mitreTactic?: string | null;
+  tags?: string | null;
+  falsePositiveRate?: string | null;
+  truePositiveCount?: string | null;
+  author?: string | null;
+  version?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type CreateDetectionBodyType =
+  (typeof CreateDetectionBodyType)[keyof typeof CreateDetectionBodyType];
+
+export const CreateDetectionBodyType = {
+  sigma: "sigma",
+  yara: "yara",
+  query: "query",
+  ioc: "ioc",
+  behavioral: "behavioral",
+} as const;
+
+export type CreateDetectionBodySeverity =
+  (typeof CreateDetectionBodySeverity)[keyof typeof CreateDetectionBodySeverity];
+
+export const CreateDetectionBodySeverity = {
+  critical: "critical",
+  high: "high",
+  medium: "medium",
+  low: "low",
+  informational: "informational",
+} as const;
+
+export interface CreateDetectionBody {
+  name: string;
+  description: string;
+  type: CreateDetectionBodyType;
+  ruleContent: string;
+  severity: CreateDetectionBodySeverity;
+  mitreTechnique?: string;
+  mitreTactic?: string;
+  tags?: string;
+  author?: string;
+}
+
+export type UpdateDetectionBodyStatus =
+  (typeof UpdateDetectionBodyStatus)[keyof typeof UpdateDetectionBodyStatus];
+
+export const UpdateDetectionBodyStatus = {
+  active: "active",
+  testing: "testing",
+  disabled: "disabled",
+  review: "review",
+} as const;
+
+export type UpdateDetectionBodySeverity =
+  (typeof UpdateDetectionBodySeverity)[keyof typeof UpdateDetectionBodySeverity];
+
+export const UpdateDetectionBodySeverity = {
+  critical: "critical",
+  high: "high",
+  medium: "medium",
+  low: "low",
+  informational: "informational",
+} as const;
+
+export interface UpdateDetectionBody {
+  status?: UpdateDetectionBodyStatus;
+  ruleContent?: string;
+  severity?: UpdateDetectionBodySeverity;
+}
+
+export interface DetectionsSummary {
+  total: number;
+  active: number;
+  testing: number;
+  disabled: number;
+  review: number;
+  sigma: number;
+  yara: number;
+  ioc: number;
+  behavioral: number;
+  critical: number;
+  high: number;
+}
+
+export type IncidentSeverity =
+  (typeof IncidentSeverity)[keyof typeof IncidentSeverity];
+
+export const IncidentSeverity = {
+  critical: "critical",
+  high: "high",
+  medium: "medium",
+  low: "low",
+} as const;
+
+export type IncidentStatus =
+  (typeof IncidentStatus)[keyof typeof IncidentStatus];
+
+export const IncidentStatus = {
+  open: "open",
+  investigating: "investigating",
+  contained: "contained",
+  eradicated: "eradicated",
+  closed: "closed",
+} as const;
+
+export interface Incident {
+  id: number;
+  title: string;
+  description: string;
+  severity: IncidentSeverity;
+  status: IncidentStatus;
+  type: string;
+  assignedAgentId?: number | null;
+  detectionId?: number | null;
+  affectedSystems?: string | null;
+  iocIndicators?: string | null;
+  playbookSteps?: string | null;
+  attackVector?: string | null;
+  mitreTechnique?: string | null;
+  containmentActions?: string | null;
+  timeToDetect?: number | null;
+  resolvedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type CreateIncidentBodySeverity =
+  (typeof CreateIncidentBodySeverity)[keyof typeof CreateIncidentBodySeverity];
+
+export const CreateIncidentBodySeverity = {
+  critical: "critical",
+  high: "high",
+  medium: "medium",
+  low: "low",
+} as const;
+
+export interface CreateIncidentBody {
+  title: string;
+  description: string;
+  severity: CreateIncidentBodySeverity;
+  type: string;
+  assignedAgentId?: number;
+  affectedSystems?: string;
+  iocIndicators?: string;
+  attackVector?: string;
+  mitreTechnique?: string;
+}
+
+export type UpdateIncidentBodyStatus =
+  (typeof UpdateIncidentBodyStatus)[keyof typeof UpdateIncidentBodyStatus];
+
+export const UpdateIncidentBodyStatus = {
+  open: "open",
+  investigating: "investigating",
+  contained: "contained",
+  eradicated: "eradicated",
+  closed: "closed",
+} as const;
+
+export interface UpdateIncidentBody {
+  status?: UpdateIncidentBodyStatus;
+  assignedAgentId?: number;
+  containmentActions?: string;
+  playbookSteps?: string;
+}
+
+export interface IncidentsSummary {
+  total: number;
+  open: number;
+  investigating: number;
+  contained: number;
+  closed: number;
+  critical: number;
+  high: number;
+  mttr: number | null;
+}
+
 export type ListMissionsParams = {
   status?: ListMissionsStatus;
   sprintId?: number;

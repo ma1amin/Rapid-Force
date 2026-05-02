@@ -19,6 +19,10 @@ tags:
     description: Threat intelligence
   - name: activity
     description: Activity feed and event log
+  - name: detections
+    description: Detection engineering — rules, signatures, ATT&CK mappings
+  - name: incidents
+    description: Incident response — active incidents, playbooks, containment
 paths:
   /healthz:
     get:
@@ -357,6 +361,146 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/ActivityEvent"
+
+  /detections:
+    get:
+      operationId: listDetections
+      tags: [detections]
+      summary: List all detection rules
+      responses:
+        "200":
+          description: Detection rules list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Detection"
+    post:
+      operationId: createDetection
+      tags: [detections]
+      summary: Create a new detection rule
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateDetectionBody"
+      responses:
+        "201":
+          description: Created detection
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Detection"
+
+  /detections/summary:
+    get:
+      operationId: getDetectionsSummary
+      tags: [detections]
+      summary: Detection engineering summary stats
+      responses:
+        "200":
+          description: Detection summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DetectionsSummary"
+
+  /detections/{id}:
+    patch:
+      operationId: updateDetection
+      tags: [detections]
+      summary: Update detection status or content
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateDetectionBody"
+      responses:
+        "200":
+          description: Updated detection
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Detection"
+
+  /incidents:
+    get:
+      operationId: listIncidents
+      tags: [incidents]
+      summary: List all incidents
+      responses:
+        "200":
+          description: Incidents list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Incident"
+    post:
+      operationId: createIncident
+      tags: [incidents]
+      summary: Open a new incident
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateIncidentBody"
+      responses:
+        "201":
+          description: Created incident
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Incident"
+
+  /incidents/summary:
+    get:
+      operationId: getIncidentsSummary
+      tags: [incidents]
+      summary: Incident response summary stats
+      responses:
+        "200":
+          description: Incident summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IncidentsSummary"
+
+  /incidents/{id}:
+    patch:
+      operationId: updateIncident
+      tags: [incidents]
+      summary: Update incident status or details
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateIncidentBody"
+      responses:
+        "200":
+          description: Updated incident
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Incident"
 
 components:
   schemas:
@@ -698,3 +842,276 @@ components:
         - type
         - message
         - createdAt
+
+    Detection:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        description:
+          type: string
+        type:
+          type: string
+          enum: [sigma, yara, query, ioc, behavioral]
+        ruleContent:
+          type: string
+        severity:
+          type: string
+          enum: [critical, high, medium, low, informational]
+        status:
+          type: string
+          enum: [active, testing, disabled, review]
+        mitreTechnique:
+          type: string
+          nullable: true
+        mitreTactic:
+          type: string
+          nullable: true
+        tags:
+          type: string
+          nullable: true
+        falsePositiveRate:
+          type: string
+          nullable: true
+        truePositiveCount:
+          type: string
+          nullable: true
+        author:
+          type: string
+          nullable: true
+        version:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - name
+        - description
+        - type
+        - ruleContent
+        - severity
+        - status
+        - createdAt
+        - updatedAt
+
+    CreateDetectionBody:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        type:
+          type: string
+          enum: [sigma, yara, query, ioc, behavioral]
+        ruleContent:
+          type: string
+        severity:
+          type: string
+          enum: [critical, high, medium, low, informational]
+        mitreTechnique:
+          type: string
+        mitreTactic:
+          type: string
+        tags:
+          type: string
+        author:
+          type: string
+      required:
+        - name
+        - description
+        - type
+        - ruleContent
+        - severity
+
+    UpdateDetectionBody:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [active, testing, disabled, review]
+        ruleContent:
+          type: string
+        severity:
+          type: string
+          enum: [critical, high, medium, low, informational]
+
+    DetectionsSummary:
+      type: object
+      properties:
+        total:
+          type: integer
+        active:
+          type: integer
+        testing:
+          type: integer
+        disabled:
+          type: integer
+        review:
+          type: integer
+        sigma:
+          type: integer
+        yara:
+          type: integer
+        ioc:
+          type: integer
+        behavioral:
+          type: integer
+        critical:
+          type: integer
+        high:
+          type: integer
+      required:
+        - total
+        - active
+        - testing
+        - disabled
+        - review
+        - sigma
+        - yara
+        - ioc
+        - behavioral
+        - critical
+        - high
+
+    Incident:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+        severity:
+          type: string
+          enum: [critical, high, medium, low]
+        status:
+          type: string
+          enum: [open, investigating, contained, eradicated, closed]
+        type:
+          type: string
+        assignedAgentId:
+          type: integer
+          nullable: true
+        detectionId:
+          type: integer
+          nullable: true
+        affectedSystems:
+          type: string
+          nullable: true
+        iocIndicators:
+          type: string
+          nullable: true
+        playbookSteps:
+          type: string
+          nullable: true
+        attackVector:
+          type: string
+          nullable: true
+        mitreTechnique:
+          type: string
+          nullable: true
+        containmentActions:
+          type: string
+          nullable: true
+        timeToDetect:
+          type: integer
+          nullable: true
+        resolvedAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - title
+        - description
+        - severity
+        - status
+        - type
+        - createdAt
+        - updatedAt
+
+    CreateIncidentBody:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        severity:
+          type: string
+          enum: [critical, high, medium, low]
+        type:
+          type: string
+        assignedAgentId:
+          type: integer
+        affectedSystems:
+          type: string
+        iocIndicators:
+          type: string
+        attackVector:
+          type: string
+        mitreTechnique:
+          type: string
+      required:
+        - title
+        - description
+        - severity
+        - type
+
+    UpdateIncidentBody:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [open, investigating, contained, eradicated, closed]
+        assignedAgentId:
+          type: integer
+        containmentActions:
+          type: string
+        playbookSteps:
+          type: string
+
+    IncidentsSummary:
+      type: object
+      properties:
+        total:
+          type: integer
+        open:
+          type: integer
+        investigating:
+          type: integer
+        contained:
+          type: integer
+        closed:
+          type: integer
+        critical:
+          type: integer
+        high:
+          type: integer
+        mttr:
+          type: integer
+          nullable: true
+      required:
+        - total
+        - open
+        - investigating
+        - contained
+        - closed
+        - critical
+        - high
+        - mttr
