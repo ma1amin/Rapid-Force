@@ -34,6 +34,10 @@ import AdminAnalytics from "@/pages/admin/AdminAnalytics";
 import AdminAnnouncements from "@/pages/admin/AdminAnnouncements";
 import AdminLicenseAdmin from "@/pages/admin/AdminLicenseAdmin";
 import Compliance from "@/pages/Compliance";
+import Playbooks from "@/pages/Playbooks";
+import BehavioralAnalytics from "@/pages/BehavioralAnalytics";
+import ExecutiveDashboard from "@/pages/ExecutiveDashboard";
+import PredictiveEWS from "@/pages/PredictiveEWS";
 import { type ReactNode, useEffect } from "react";
 
 const queryClient = new QueryClient({
@@ -102,6 +106,10 @@ function Router() {
                 <Route path="/adversarial"><ModuleGate moduleKey="adversarial_sim"><AdversarialSim /></ModuleGate></Route>
                 <Route path="/hunting"><ModuleGate moduleKey="threat_hunting"><ThreatHunting /></ModuleGate></Route>
                 <Route path="/compliance"><ModuleGate moduleKey="compliance"><Compliance /></ModuleGate></Route>
+                <Route path="/playbooks"><ModuleGate moduleKey="playbooks"><Playbooks /></ModuleGate></Route>
+                <Route path="/behavioral"><ModuleGate moduleKey="behavioral_analytics"><BehavioralAnalytics /></ModuleGate></Route>
+                <Route path="/executive"><ModuleGate moduleKey="executive"><ExecutiveDashboard /></ModuleGate></Route>
+                <Route path="/early-warning"><ModuleGate moduleKey="early_warning"><PredictiveEWS /></ModuleGate></Route>
                 <Route component={NotFound} />
               </Switch>
             </Shell>
