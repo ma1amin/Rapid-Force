@@ -112,7 +112,7 @@ export default function Playbooks() {
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("All");
   const [status, setStatus] = useState("All");
-  const [selected, setSelected] = useState<Playbook | null>(null);
+  const [selected, setSelected] = useState<Playbook | null>(INITIAL_PLAYBOOKS[0]);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
