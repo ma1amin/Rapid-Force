@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { BookOpen, Play, Pause, Clock, Plus, Search, ChevronRight, Zap, Bot, Eye, X, Lightbulb, ChevronDown } from "lucide-react";
+import { useState, useEffect } from "react";
+import { BookOpen, Play, Pause, Clock, Plus, Search, ChevronRight, Zap, Bot, Eye, X, Lightbulb, ChevronDown, Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -104,20 +104,43 @@ const statusIcons: Record<string, React.ReactNode> = {
   draft:  <Clock className="w-3 h-3" />,
 };
 
+const LS_KEY = "rf-playbooks-state";
+
+function loadPlaybooks(): Playbook[] {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    return raw ? JSON.parse(raw) : INITIAL_PLAYBOOKS;
+  } catch {
+    return INITIAL_PLAYBOOKS;
+  }
+}
+
+function savePlaybooks(pbs: Playbook[]) {
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify(pbs));
+  } catch {}
+}
+
 const EMPTY_FORM = { name: "", description: "", trigger: "", category: "Incident Response", severity: "high" as PlaybookSeverity, steps: "6", automationRate: "80" };
 
 export default function Playbooks() {
   const { toast } = useToast();
-  const [playbooks, setPlaybooks] = useState<Playbook[]>(INITIAL_PLAYBOOKS);
-  const [search, setSearch] = useState("");
-  const [category, setCategory] = useState("All");
-  const [status, setStatus] = useState("All");
-  const [selected, setSelected] = useState<Playbook | null>(INITIAL_PLAYBOOKS[0]);
-
-  const [modalOpen, setModalOpen] = useState(false);
+  const [playbooks, setPlaybooks]     = useState<Playbook[]>(loadPlaybooks);
+  const [search, setSearch]           = useState("");
+  const [category, setCategory]       = useState("All");
+  const [status, setStatus]           = useState("All");
+  const [selectedId, setSelectedId]   = useState<string | null>(INITIAL_PLAYBOOKS[0].id);
+  const [runningId, setRunningId]     = useState<string | null>(null);
+  const [modalOpen, setModalOpen]     = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
-  const [form, setForm] = useState(EMPTY_FORM);
-  const [formError, setFormError] = useState("");
+  const [form, setForm]               = useState(EMPTY_FORM);
+  const [formError, setFormError]     = useState("");
+
+  // Derive selected from the live playbooks array so it never goes stale
+  const selected = playbooks.find(p => p.id === selectedId) ?? null;
+
+  // Persist every time playbooks changes
+  useEffect(() => { savePlaybooks(playbooks); }, [playbooks]);
 
   const filtered = playbooks.filter(pb => {
     if (category !== "All" && pb.category !== category) return false;
@@ -126,8 +149,8 @@ export default function Playbooks() {
     return true;
   });
 
-  const totalRuns = playbooks.reduce((s, p) => s + p.completedRuns, 0);
-  const activeCount = playbooks.filter(p => p.status === "active").length;
+  const totalRuns    = playbooks.reduce((s, p) => s + p.completedRuns, 0);
+  const activeCount  = playbooks.filter(p => p.status === "active").length;
   const avgAutomation = Math.round(playbooks.reduce((s, p) => s + p.automationRate, 0) / playbooks.length);
 
   function openBlank() { setForm(EMPTY_FORM); setFormError(""); setShowSuggestions(false); setModalOpen(true); }
@@ -158,12 +181,42 @@ export default function Playbooks() {
     };
     setPlaybooks(prev => [newPb, ...prev]);
     setModalOpen(false);
-    setSelected(newPb);
+    setSelectedId(newPb.id);
     toast({ title: "Playbook created", description: `"${newPb.name}" saved as draft. Activate it to start receiving triggers.` });
   }
 
   function handleRun(pb: Playbook) {
+    if (runningId === pb.id) {
+      // Stop
+      setRunningId(null);
+      toast({ title: `Playbook stopped: ${pb.name}`, description: "Execution aborted." });
+      return;
+    }
+    setRunningId(pb.id);
     toast({ title: `Playbook triggered: ${pb.name}`, description: "Execution started. Monitor in the incident timeline." });
+
+    // Simulate execution finishing after a few seconds
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true });
+    setTimeout(() => {
+      setRunningId(null);
+      setPlaybooks(prev => prev.map(p =>
+        p.id === pb.id
+          ? { ...p, completedRuns: p.completedRuns + 1, lastRun: `Today at ${timeStr}` }
+          : p
+      ));
+      toast({ title: `Playbook complete: ${pb.name}`, description: "Execution finished successfully." });
+    }, 4000);
+  }
+
+  function handleActivate(pb: Playbook) {
+    setPlaybooks(prev => prev.map(p => p.id === pb.id ? { ...p, status: "active" as PlaybookStatus } : p));
+    toast({ title: "Playbook activated", description: `"${pb.name}" is now live and listening for triggers.` });
+  }
+
+  function handleResume(pb: Playbook) {
+    setPlaybooks(prev => prev.map(p => p.id === pb.id ? { ...p, status: "active" as PlaybookStatus } : p));
+    toast({ title: "Playbook resumed", description: `"${pb.name}" has been reactivated.` });
   }
 
   return (
@@ -264,50 +317,55 @@ export default function Playbooks() {
       <div className="grid grid-cols-3 gap-4">
         {/* Playbook list */}
         <div className="col-span-2 space-y-3">
-          {filtered.map(pb => (
-            <div key={pb.id} onClick={() => setSelected(pb)}
-              className={cn("bg-card border p-4 cursor-pointer transition-all hover:border-primary/40 group",
-                selected?.id === pb.id ? "border-primary/60" : "border-border"
-              )}>
-              <div className="flex items-start justify-between mb-2">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1 flex-wrap">
-                    <span className="text-sm font-semibold font-mono">{pb.name}</span>
-                    <Badge className={cn("text-[10px] font-mono border px-1.5 py-0", severityColors[pb.severity])}>{pb.severity.toUpperCase()}</Badge>
-                    <Badge className={cn("text-[10px] font-mono border px-1.5 py-0 flex items-center gap-1", statusColors[pb.status])}>
-                      {statusIcons[pb.status]}{pb.status.toUpperCase()}
-                    </Badge>
+          {filtered.map(pb => {
+            const isRunning = runningId === pb.id;
+            return (
+              <div key={pb.id} onClick={() => setSelectedId(pb.id)}
+                className={cn("bg-card border p-4 cursor-pointer transition-all hover:border-primary/40 group",
+                  selectedId === pb.id ? "border-primary/60" : "border-border"
+                )}>
+                <div className="flex items-start justify-between mb-2">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+                      <span className="text-sm font-semibold font-mono">{pb.name}</span>
+                      <Badge className={cn("text-[10px] font-mono border px-1.5 py-0", severityColors[pb.severity])}>{pb.severity.toUpperCase()}</Badge>
+                      <Badge className={cn("text-[10px] font-mono border px-1.5 py-0 flex items-center gap-1",
+                        isRunning ? "text-primary border-primary/40 bg-primary/10 animate-pulse" : statusColors[pb.status])}>
+                        {isRunning ? <><Zap className="w-3 h-3" />RUNNING</> : <>{statusIcons[pb.status]}{pb.status.toUpperCase()}</>}
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground font-mono">{pb.description}</p>
                   </div>
-                  <p className="text-xs text-muted-foreground font-mono">{pb.description}</p>
+                  <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors ml-3 mt-0.5 flex-shrink-0" />
                 </div>
-                <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors ml-3 mt-0.5 flex-shrink-0" />
-              </div>
-              <div className="flex items-center gap-1 text-xs font-mono text-muted-foreground mt-2">
-                <Zap className="w-3 h-3 flex-shrink-0" />
-                <span className="truncate">{pb.trigger}</span>
-              </div>
-              <div className="flex items-center justify-between mt-3 pt-3 border-t border-border">
-                <div className="flex gap-4 text-xs font-mono text-muted-foreground">
-                  <span>{pb.steps} steps</span>
-                  <span>{pb.completedRuns} runs</span>
-                  {pb.completedRuns > 0 && <span>avg {pb.avgRuntime}</span>}
-                  <span className="text-emerald-400">{pb.automationRate}% auto</span>
+                <div className="flex items-center gap-1 text-xs font-mono text-muted-foreground mt-2">
+                  <Zap className="w-3 h-3 flex-shrink-0" />
+                  <span className="truncate">{pb.trigger}</span>
                 </div>
-                <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <Button size="sm" variant="ghost" className="h-6 px-2 text-xs font-mono text-muted-foreground hover:text-primary hover:bg-primary/10"
-                    onClick={e => { e.stopPropagation(); setSelected(pb); }}>
-                    <Eye className="w-3 h-3 mr-1" />VIEW
-                  </Button>
-                  {pb.status === "active" && (
-                    <Button size="sm" variant="ghost" className="h-6 px-2 text-xs font-mono text-emerald-400 hover:bg-emerald-500/10"
-                      onClick={e => { e.stopPropagation(); handleRun(pb); }}>
-                      <Play className="w-3 h-3 mr-1" />RUN
+                <div className="flex items-center justify-between mt-3 pt-3 border-t border-border">
+                  <div className="flex gap-4 text-xs font-mono text-muted-foreground">
+                    <span>{pb.steps} steps</span>
+                    <span>{pb.completedRuns} runs</span>
+                    {pb.completedRuns > 0 && <span>avg {pb.avgRuntime}</span>}
+                    <span className="text-emerald-400">{pb.automationRate}% auto</span>
+                  </div>
+                  <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Button size="sm" variant="ghost" className="h-6 px-2 text-xs font-mono text-muted-foreground hover:text-primary hover:bg-primary/10"
+                      onClick={e => { e.stopPropagation(); setSelectedId(pb.id); }}>
+                      <Eye className="w-3 h-3 mr-1" />VIEW
                     </Button>
-                  )}
+                    {pb.status === "active" && (
+                      <Button size="sm" variant="ghost"
+                        className={cn("h-6 px-2 text-xs font-mono", isRunning ? "text-destructive hover:bg-destructive/10" : "text-emerald-400 hover:bg-emerald-500/10")}
+                        onClick={e => { e.stopPropagation(); handleRun(pb); }}>
+                        {isRunning ? <><Square className="w-3 h-3 mr-1" />STOP</> : <><Play className="w-3 h-3 mr-1" />RUN</>}
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
           {filtered.length === 0 && (
             <div className="text-center py-12 text-muted-foreground font-mono text-sm border border-dashed border-border">
               No playbooks match your filters.
@@ -315,7 +373,7 @@ export default function Playbooks() {
           )}
         </div>
 
-        {/* Detail panel */}
+        {/* Detail panel — always derived from live playbooks array */}
         <div className="bg-card border border-border p-5 self-start sticky top-6">
           {selected ? (
             <div className="space-y-4">
@@ -324,11 +382,23 @@ export default function Playbooks() {
                   <BookOpen className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
                   <h3 className="text-sm font-bold font-mono leading-tight">{selected.name}</h3>
                 </div>
-                <button onClick={() => setSelected(null)} className="text-muted-foreground hover:text-foreground flex-shrink-0">
+                <button onClick={() => setSelectedId(null)} className="text-muted-foreground hover:text-foreground flex-shrink-0">
                   <X className="w-3.5 h-3.5" />
                 </button>
               </div>
               <p className="text-xs text-muted-foreground font-mono">{selected.description}</p>
+
+              {/* Status badge in detail panel */}
+              <div className="flex items-center gap-2">
+                <Badge className={cn("text-[10px] font-mono border px-2 py-0.5 flex items-center gap-1",
+                  runningId === selected.id ? "text-primary border-primary/40 bg-primary/10 animate-pulse" : statusColors[selected.status])}>
+                  {runningId === selected.id ? <><Zap className="w-3 h-3" />RUNNING</> : <>{statusIcons[selected.status]}{selected.status.toUpperCase()}</>}
+                </Badge>
+                <Badge className={cn("text-[10px] font-mono border px-2 py-0.5", severityColors[selected.severity])}>
+                  {selected.severity.toUpperCase()}
+                </Badge>
+              </div>
+
               <div className="space-y-2">
                 {[
                   ["Category", selected.category],
@@ -354,30 +424,30 @@ export default function Playbooks() {
               </div>
               <div className="flex flex-col gap-2 pt-1">
                 {selected.status === "active" && (
-                  <Button className="w-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20 font-mono text-xs gap-2"
+                  <Button
+                    className={cn("w-full font-mono text-xs gap-2 border transition-all",
+                      runningId === selected.id
+                        ? "bg-destructive/10 border-destructive/40 text-destructive hover:bg-destructive/20"
+                        : "bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20"
+                    )}
                     onClick={() => handleRun(selected)}>
-                    <Play className="w-3 h-3" /> TRIGGER PLAYBOOK
+                    {runningId === selected.id
+                      ? <><Square className="w-3 h-3" /> STOP EXECUTION</>
+                      : <><Play className="w-3 h-3" /> TRIGGER PLAYBOOK</>
+                    }
                   </Button>
                 )}
                 {selected.status === "draft" && (
                   <Button className="w-full bg-primary/10 border border-primary/30 text-primary hover:bg-primary/20 font-mono text-xs gap-2"
-                    onClick={() => {
-                      setPlaybooks(prev => prev.map(p => p.id === selected.id ? { ...p, status: "active" as PlaybookStatus } : p));
-                      setSelected(prev => prev ? { ...prev, status: "active" } : null);
-                      toast({ title: "Playbook activated", description: `"${selected.name}" is now live and listening for triggers.` });
-                    }}>
+                    onClick={() => handleActivate(selected)}>
                     <Play className="w-3 h-3" /> ACTIVATE PLAYBOOK
                   </Button>
                 )}
                 {selected.status === "paused" && (
                   <Button className="w-full bg-yellow-500/10 border border-yellow-500/30 text-yellow-400 hover:bg-yellow-500/20 font-mono text-xs gap-2"
-                    onClick={() => {
-                      setPlaybooks(prev => prev.map(p => p.id === selected.id ? { ...p, status: "active" as PlaybookStatus } : p));
-                      setSelected(prev => prev ? { ...prev, status: "active" } : null);
-                      toast({ title: "Playbook resumed", description: `"${selected.name}" has been reactivated.` });
-                    }}>
+                    onClick={() => handleResume(selected)}>
                     <Play className="w-3 h-3" /> RESUME PLAYBOOK
-                </Button>
+                  </Button>
                 )}
               </div>
             </div>
