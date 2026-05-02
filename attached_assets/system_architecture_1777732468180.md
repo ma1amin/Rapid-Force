@@ -1,0 +1,1 @@
+Updated architecture including compliance and trust layer, edge nodes, AI core.
