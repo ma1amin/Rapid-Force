@@ -1,14 +1,14 @@
 import { Link, useLocation } from "wouter";
-import { 
-  TerminalSquare, 
-  Cpu, 
-  Zap, 
-  Target, 
-  ShieldAlert, 
+import {
+  TerminalSquare,
+  Cpu,
+  Zap,
+  Target,
+  ShieldAlert,
   ActivitySquare,
   FileCode2,
   Siren,
-  Bot
+  Bot,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -61,17 +61,19 @@ export default function Sidebar({ onCopilotOpen, copilotOpen }: Props) {
                   : "text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-foreground border-transparent"
               )}
             >
-              <item.icon className={cn(
-                "h-4 w-4 shrink-0",
-                isActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground"
-              )} />
+              <item.icon
+                className={cn(
+                  "h-4 w-4 shrink-0",
+                  isActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground"
+                )}
+              />
               {item.name}
             </Link>
           );
         })}
       </nav>
 
-      {/* AI Copilot button */}
+      {/* AI Copilot shortcut */}
       <div className="px-3 py-3 border-t border-border">
         <button
           onClick={onCopilotOpen}
