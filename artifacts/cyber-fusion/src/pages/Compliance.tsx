@@ -1,8 +1,8 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   ClipboardCheck, Shield, AlertTriangle, CheckCircle2, XCircle,
   ChevronRight, RefreshCcw, Download, Loader2, Info, Lock,
-  TrendingUp, BookOpen, Filter,
+  TrendingUp, Filter, Bot, StopCircle, Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -85,6 +85,11 @@ export default function Compliance() {
   const [filterStatus, setFilterStatus] = useState<"all" | "covered" | "partial" | "gap">("all");
   const [filterCategory, setFilterCategory] = useState<string>("all");
 
+  // AI analysis state
+  const [aiAnalysis, setAiAnalysis] = useState("");
+  const [aiStreaming, setAiStreaming] = useState(false);
+  const aiAbortRef = useRef(false);
+
   const fetchPosture = useCallback(async () => {
     try {
       const [postureRes, gapsRes] = await Promise.all([
@@ -98,6 +103,7 @@ export default function Compliance() {
 
   const fetchDetail = useCallback(async (key: string) => {
     setLoadingDetail(true);
+    setAiAnalysis("");
     try {
       const r = await fetch(`${BASE}/api/compliance/framework/${key}`, { credentials: "include" });
       if (r.ok) setDetail(await r.json());
@@ -132,6 +138,9 @@ export default function Compliance() {
         `[${c.status.toUpperCase()}] ${c.id} — ${c.title}\n  ${c.description}\n  Modules: ${c.modules.map(m => MODULE_LABELS[m] ?? m).join(", ")}`
       ),
     ];
+    if (aiAnalysis) {
+      lines.push(``, `## AI Analysis`, aiAnalysis);
+    }
     const blob = new Blob([lines.join("\n")], { type: "text/plain" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
@@ -139,6 +148,86 @@ export default function Compliance() {
     a.click();
     URL.revokeObjectURL(a.href);
   };
+
+  async function runAiAnalysis() {
+    if (!detail || aiStreaming) return;
+    aiAbortRef.current = false;
+    setAiStreaming(true);
+    setAiAnalysis("");
+
+    const fw = detail.framework;
+    const postureSummary = detail.posture;
+    const gaps = postureSummary.controls.filter(c => c.status === "gap");
+    const partials = postureSummary.controls.filter(c => c.status === "partial");
+    const missingMods = Array.from(new Set(gaps.flatMap(c => c.missingModules))).slice(0, 8);
+
+    const systemPrompt = `You are a cybersecurity compliance expert and GRC analyst. Analyze this compliance posture and provide a concise, prioritized, actionable assessment. Be specific and technical. Format your response with clear sections using markdown headers (###). Keep the total response under 600 words.`;
+
+    const userPrompt = `Framework: ${fw.name} ${fw.version}
+Compliance Score: ${postureSummary.score}%
+Controls: ${postureSummary.covered} covered, ${postureSummary.partial} partial, ${postureSummary.gap} gaps (${postureSummary.total} total)
+
+TOP CONTROL GAPS (${Math.min(gaps.length, 6)} of ${gaps.length}):
+${gaps.slice(0, 6).map(c => `- ${c.id}: ${c.title} — Missing: ${c.missingModules.map(m => MODULE_LABELS[m] ?? m).join(", ")}`).join("\n")}
+
+PARTIAL COVERAGE (${Math.min(partials.length, 4)} of ${partials.length}):
+${partials.slice(0, 4).map(c => `- ${c.id}: ${c.title}`).join("\n")}
+
+MISSING CAPABILITY MODULES: ${missingMods.map(m => MODULE_LABELS[m] ?? m).join(", ")}
+
+Provide: 1) Overall risk assessment, 2) Top 3 priority remediation actions, 3) Quick wins (partial → covered), 4) Regulatory exposure if applicable.`;
+
+    try {
+      const resp = await fetch(`${BASE}/api/copilot/analyze`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user",   content: userPrompt },
+          ],
+        }),
+      });
+
+      if (!resp.ok || !resp.body) {
+        setAiAnalysis("Failed to connect to AI analysis service. Please try again.");
+        setAiStreaming(false);
+        return;
+      }
+
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = "";
+
+      while (true) {
+        if (aiAbortRef.current) break;
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        const lines = buf.split("\n");
+        buf = lines.pop() ?? "";
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          try {
+            const json = JSON.parse(line.slice(6));
+            if (json.done) { setAiStreaming(false); return; }
+            if (json.error) { setAiAnalysis(prev => prev + `\n\n[Error: ${json.error}]`); break; }
+            if (json.content) setAiAnalysis(prev => prev + json.content);
+          } catch {}
+        }
+      }
+    } catch {
+      setAiAnalysis("Network error. Please check your connection and try again.");
+    } finally {
+      setAiStreaming(false);
+    }
+  }
+
+  function stopAiAnalysis() {
+    aiAbortRef.current = true;
+    setAiStreaming(false);
+  }
 
   return (
     <div className="space-y-5">
@@ -355,8 +444,59 @@ export default function Compliance() {
               </div>
             </div>
 
-            {/* Right column: Gap analysis + recommendations */}
+            {/* Right column */}
             <div className="space-y-4">
+              {/* AI Compliance Analysis */}
+              <div className="bg-card border border-border">
+                <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
+                  <Bot className="h-4 w-4 text-primary" />
+                  <div className="text-xs font-mono text-muted-foreground tracking-widest">AI COMPLIANCE ANALYSIS</div>
+                </div>
+                <div className="p-4 space-y-3">
+                  {!aiAnalysis && !aiStreaming && (
+                    <p className="text-xs font-mono text-muted-foreground">
+                      Generate an AI-powered compliance gap analysis with prioritized remediation recommendations for the selected framework.
+                    </p>
+                  )}
+                  {(aiAnalysis || aiStreaming) && (
+                    <div className="text-xs font-mono text-foreground/90 leading-relaxed space-y-1 max-h-80 overflow-y-auto pr-1">
+                      {aiAnalysis.split("\n").map((line, i) => (
+                        <div key={i} className={cn(
+                          line.startsWith("### ") ? "text-primary font-bold mt-3 mb-1 text-[11px] tracking-wider" :
+                          line.startsWith("## ")  ? "text-primary font-bold mt-2 mb-1" :
+                          line.startsWith("- ") || line.startsWith("* ") ? "pl-2 text-foreground/80" :
+                          line.match(/^\d+\./) ? "text-foreground font-medium" :
+                          line.trim() === "" ? "h-2" :
+                          "text-foreground/80"
+                        )}>{line.replace(/^###?\s*/, "")}</div>
+                      ))}
+                      {aiStreaming && <span className="text-primary animate-pulse">█</span>}
+                    </div>
+                  )}
+                  <div className="flex gap-2">
+                    {!aiStreaming ? (
+                      <button
+                        onClick={runAiAnalysis}
+                        disabled={!detail || loadingDetail}
+                        className={cn(
+                          "flex-1 flex items-center justify-center gap-1.5 text-xs font-mono border px-3 py-2 transition-all disabled:opacity-40 disabled:cursor-not-allowed",
+                          aiAnalysis
+                            ? "border-primary/30 text-primary hover:bg-primary/10"
+                            : "border-primary/40 bg-primary/5 text-primary hover:bg-primary/10"
+                        )}>
+                        <Sparkles className="h-3.5 w-3.5" />
+                        {aiAnalysis ? "RE-ANALYZE" : "ANALYZE WITH AI"}
+                      </button>
+                    ) : (
+                      <button onClick={stopAiAnalysis}
+                        className="flex-1 flex items-center justify-center gap-1.5 text-xs font-mono border border-destructive/30 text-destructive hover:bg-destructive/10 px-3 py-2 transition-all">
+                        <StopCircle className="h-3.5 w-3.5" />STOP
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
               {/* Gap analysis */}
               <div className="bg-card border border-border">
                 <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
@@ -423,7 +563,7 @@ export default function Compliance() {
                 </div>
               </div>
 
-              {/* What is compliance */}
+              {/* How scores are calculated */}
               <div className="bg-card border border-border p-4">
                 <div className="flex items-center gap-2 mb-3">
                   <Info className="h-3.5 w-3.5 text-muted-foreground" />
@@ -432,40 +572,15 @@ export default function Compliance() {
                 <div className="space-y-2 text-xs font-mono text-muted-foreground">
                   <div className="flex items-center gap-2">
                     <CheckCircle2 className="h-3 w-3 text-emerald-400 shrink-0" />
-                    <span><span className="text-emerald-400">COVERED</span> — all required modules active</span>
+                    <span><span className="text-emerald-400">Covered</span> — all required modules active</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <AlertTriangle className="h-3 w-3 text-amber-400 shrink-0" />
-                    <span><span className="text-amber-400">PARTIAL</span> — some required modules active</span>
+                    <span><span className="text-amber-400">Partial</span> — some modules active (0.5× weight)</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <XCircle className="h-3 w-3 text-destructive shrink-0" />
-                    <span><span className="text-destructive">GAP</span> — no required modules active</span>
-                  </div>
-                  <div className="mt-2 pt-2 border-t border-border">
-                    Score = (Covered + Partial×0.5) / Total × 100
-                  </div>
-                </div>
-              </div>
-
-              {/* AI Assessment prompt */}
-              <div className="border border-dashed border-primary/30 bg-primary/5 p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <BookOpen className="h-3.5 w-3.5 text-primary" />
-                  <div className="text-xs font-mono text-primary tracking-widest">AI COMPLIANCE ANALYSIS</div>
-                </div>
-                <p className="text-xs font-mono text-muted-foreground mb-3">
-                  Use the AI Copilot to get detailed compliance recommendations, remediation steps, and audit preparation guidance.
-                </p>
-                <div className="space-y-1.5 text-xs font-mono text-muted-foreground">
-                  <div className="border border-border/50 px-2 py-1.5 bg-background/50 cursor-pointer hover:border-primary/30 transition-colors">
-                    "Analyze my NIST CSF compliance gaps"
-                  </div>
-                  <div className="border border-border/50 px-2 py-1.5 bg-background/50 cursor-pointer hover:border-primary/30 transition-colors">
-                    "What do I need for SOC 2 Type II?"
-                  </div>
-                  <div className="border border-border/50 px-2 py-1.5 bg-background/50 cursor-pointer hover:border-primary/30 transition-colors">
-                    "Generate a remediation roadmap for ISO 27001"
+                    <span><span className="text-destructive">Gap</span> — no required modules active</span>
                   </div>
                 </div>
               </div>

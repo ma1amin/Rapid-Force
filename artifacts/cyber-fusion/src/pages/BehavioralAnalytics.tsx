@@ -65,10 +65,10 @@ const trendIcon = (t: string) =>
   t === "up" ? "↑" : t === "down" ? "↓" : "→";
 
 const trendColor = (t: string) =>
-  t === "up" ? "text-red-400" : t === "down" ? "text-emerald-400" : "text-slate-400";
+  t === "up" ? "text-red-400" : t === "down" ? "text-emerald-400" : "text-muted-foreground";
 
 export default function BehavioralAnalytics() {
-  const [selected, setSelected] = useState<typeof MOCK_ENTITIES[0] | null>(null);
+  const [selected, setSelected] = useState<typeof MOCK_ENTITIES[0] | null>(MOCK_ENTITIES[0]);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<"all" | "user" | "host" | "service">("all");
 
@@ -83,35 +83,36 @@ export default function BehavioralAnalytics() {
   const totalAnomalies = MOCK_ENTITIES.reduce((s, e) => s + e.anomalies, 0);
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold tracking-widest text-cyan-400 font-mono">BEHAVIORAL ANALYTICS</h1>
-          <p className="text-xs text-slate-500 mt-0.5 font-mono">User & Entity Behavior Analytics · UEBA engine · ML baseline deviation</p>
+          <div className="text-xs font-mono text-primary/70 tracking-widest mb-1">RAPID FORCE // BEHAVIORAL ANALYTICS</div>
+          <h1 className="text-2xl font-bold tracking-wider">BEHAVIORAL ANALYTICS</h1>
+          <p className="text-xs font-mono text-muted-foreground mt-0.5">User & Entity Behavior Analytics · UEBA engine · ML baseline deviation</p>
         </div>
       </div>
 
       {/* Stats */}
       <div className="grid grid-cols-4 gap-4">
         {[
-          { label: "MONITORED ENTITIES", value: MOCK_ENTITIES.length, color: "cyan", icon: User },
-          { label: "HIGH RISK", value: highRisk, color: "red", icon: AlertTriangle },
-          { label: "MEDIUM RISK", value: medRisk, color: "orange", icon: TrendingUp },
-          { label: "TOTAL ANOMALIES", value: totalAnomalies, color: "amber", icon: Activity },
+          { label: "MONITORED ENTITIES", value: MOCK_ENTITIES.length, color: "text-primary", icon: User },
+          { label: "HIGH RISK", value: highRisk, color: "text-destructive", icon: AlertTriangle },
+          { label: "MEDIUM RISK", value: medRisk, color: "text-accent", icon: TrendingUp },
+          { label: "TOTAL ANOMALIES", value: totalAnomalies, color: "text-amber-400", icon: Activity },
         ].map(s => (
-          <div key={s.label} className="bg-slate-900/60 border border-slate-700/50 rounded-lg p-4">
+          <div key={s.label} className="bg-card border border-border p-4">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-xs text-slate-500 font-mono tracking-wider">{s.label}</span>
-              <s.icon className={cn("w-4 h-4", `text-${s.color}-400`)} />
+              <span className="text-xs text-muted-foreground font-mono tracking-wider">{s.label}</span>
+              <s.icon className={cn("w-4 h-4", s.color)} />
             </div>
-            <div className={cn("text-2xl font-bold font-mono", `text-${s.color}-400`)}>{s.value}</div>
+            <div className={cn("text-2xl font-bold font-mono", s.color)}>{s.value}</div>
           </div>
         ))}
       </div>
 
       {/* Risk heatmap bar */}
-      <div className="bg-slate-900/60 border border-slate-700/50 rounded-lg p-4">
-        <div className="text-xs text-slate-500 font-mono mb-3 tracking-wider">ENTITY RISK DISTRIBUTION</div>
+      <div className="bg-card border border-border p-4">
+        <div className="text-xs text-muted-foreground font-mono mb-3 tracking-wider">ENTITY RISK DISTRIBUTION</div>
         <div className="flex gap-1 h-6">
           {MOCK_ENTITIES.sort((a, b) => b.riskScore - a.riskScore).map(e => (
             <div key={e.id} className="flex-1 rounded-sm cursor-pointer transition-all hover:opacity-80"
@@ -121,7 +122,7 @@ export default function BehavioralAnalytics() {
             />
           ))}
         </div>
-        <div className="flex justify-between text-xs font-mono text-slate-600 mt-1">
+        <div className="flex justify-between text-xs font-mono text-muted-foreground mt-1">
           <span>Critical Risk</span><span>Low Risk</span>
         </div>
       </div>
@@ -129,15 +130,15 @@ export default function BehavioralAnalytics() {
       {/* Filters */}
       <div className="flex gap-3 items-center">
         <div className="relative flex-1 max-w-xs">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
           <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search entities..."
-            className="pl-9 bg-slate-900/60 border-slate-700/50 text-slate-200 placeholder-slate-600 font-mono text-xs h-8" />
+            className="pl-9 bg-card border-border font-mono text-xs h-8" />
         </div>
         <div className="flex gap-2">
           {(["all", "user", "host", "service"] as const).map(f => (
             <button key={f} onClick={() => setFilter(f)}
-              className={cn("px-3 py-1 rounded text-xs font-mono border transition-all capitalize",
-                filter === f ? "bg-cyan-500/20 border-cyan-500/50 text-cyan-400" : "bg-slate-900/60 border-slate-700/50 text-slate-400 hover:border-slate-500"
+              className={cn("px-3 py-1 text-xs font-mono border transition-all capitalize",
+                filter === f ? "bg-primary/10 border-primary/40 text-primary" : "bg-card border-border text-muted-foreground hover:border-border"
               )}>{f}</button>
           ))}
         </div>
@@ -148,14 +149,14 @@ export default function BehavioralAnalytics() {
         <div className="col-span-2 space-y-2">
           {filtered.map(entity => (
             <div key={entity.id} onClick={() => setSelected(entity)}
-              className={cn("bg-slate-900/60 border rounded-lg p-4 cursor-pointer hover:border-cyan-500/40 transition-all group",
-                selected?.id === entity.id ? "border-cyan-500/60" : "border-slate-700/50"
+              className={cn("bg-card border p-4 cursor-pointer hover:border-primary/40 transition-all group",
+                selected?.id === entity.id ? "border-primary/60" : "border-border"
               )}>
               <div className="flex items-center gap-4">
                 {/* Risk ring */}
                 <div className="relative w-12 h-12 flex-shrink-0">
                   <svg className="w-12 h-12 -rotate-90" viewBox="0 0 36 36">
-                    <circle cx="18" cy="18" r="15" fill="none" stroke="currentColor" strokeWidth="3" className="text-slate-800" />
+                    <circle cx="18" cy="18" r="15" fill="none" stroke="currentColor" strokeWidth="3" className="text-muted/50" />
                     <circle cx="18" cy="18" r="15" fill="none" strokeWidth="3"
                       stroke={entity.riskScore >= 80 ? "#ef4444" : entity.riskScore >= 60 ? "#f97316" : entity.riskScore >= 40 ? "#eab308" : "#10b981"}
                       strokeDasharray={`${(entity.riskScore / 100) * 94.2} 94.2`} strokeLinecap="round" />
@@ -166,14 +167,14 @@ export default function BehavioralAnalytics() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-0.5">
-                    <span className="text-sm font-semibold text-slate-100 font-mono truncate">{entity.displayName}</span>
-                    <Badge className="text-[10px] font-mono border border-slate-600/50 bg-slate-800/50 text-slate-400 px-1.5 py-0 capitalize">{entity.type}</Badge>
+                    <span className="text-sm font-semibold font-mono truncate">{entity.displayName}</span>
+                    <Badge className="text-[10px] font-mono border border-border bg-muted/50 text-muted-foreground px-1.5 py-0 capitalize">{entity.type}</Badge>
                     <span className={cn("text-xs font-mono font-bold", trendColor(entity.riskTrend))}>
                       {trendIcon(entity.riskTrend)}
                     </span>
                   </div>
-                  <div className="text-xs text-slate-500 font-mono truncate">{entity.name}</div>
-                  <div className="flex items-center gap-3 mt-2 text-xs font-mono text-slate-500">
+                  <div className="text-xs text-muted-foreground font-mono truncate">{entity.name}</div>
+                  <div className="flex items-center gap-3 mt-2 text-xs font-mono text-muted-foreground">
                     <span>{entity.department}</span>
                     <span className="text-red-400">{entity.anomalies} anomalies</span>
                     <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{entity.lastActivity}</span>
@@ -181,40 +182,40 @@ export default function BehavioralAnalytics() {
                 </div>
                 <div className="flex flex-col gap-1 items-end">
                   {entity.flags.slice(0, 2).map(f => (
-                    <Badge key={f} className="text-[9px] font-mono border border-red-500/30 bg-red-500/10 text-red-400 px-1.5 py-0 whitespace-nowrap">{f}</Badge>
+                    <Badge key={f} className="text-[9px] font-mono border border-destructive/30 bg-destructive/10 text-destructive px-1.5 py-0 whitespace-nowrap">{f}</Badge>
                   ))}
                   {entity.flags.length > 2 && (
-                    <span className="text-[9px] text-slate-600 font-mono">+{entity.flags.length - 2} more</span>
+                    <span className="text-[9px] text-muted-foreground font-mono">+{entity.flags.length - 2} more</span>
                   )}
                 </div>
-                <ChevronRight className="w-4 h-4 text-slate-600 group-hover:text-cyan-400 transition-colors flex-shrink-0" />
+                <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors flex-shrink-0" />
               </div>
             </div>
           ))}
         </div>
 
         {/* Detail panel */}
-        <div className="bg-slate-900/60 border border-slate-700/50 rounded-lg p-5">
+        <div className="bg-card border border-border p-5">
           {selected ? (
             <div className="space-y-4">
               <div>
                 <div className="flex items-center gap-2 mb-1">
-                  <User className="w-4 h-4 text-cyan-400" />
-                  <h3 className="text-sm font-bold text-slate-100 font-mono">{selected.displayName}</h3>
+                  <User className="w-4 h-4 text-primary" />
+                  <h3 className="text-sm font-bold font-mono">{selected.displayName}</h3>
                 </div>
-                <div className="text-xs text-slate-500 font-mono">{selected.name}</div>
+                <div className="text-xs text-muted-foreground font-mono">{selected.name}</div>
               </div>
               {/* Risk score big */}
-              <div className="text-center py-3 border border-slate-700/50 rounded-lg">
+              <div className="text-center py-3 border border-border">
                 <div className={cn("text-4xl font-black font-mono", riskColor(selected.riskScore))}>{selected.riskScore}</div>
-                <div className="text-xs text-slate-500 font-mono mt-1">RISK SCORE</div>
-                <div className="w-3/4 mx-auto bg-slate-800 rounded-full h-1.5 mt-2">
+                <div className="text-xs text-muted-foreground font-mono mt-1">RISK SCORE</div>
+                <div className="w-3/4 mx-auto bg-muted rounded-full h-1.5 mt-2">
                   <div className={cn("h-1.5 rounded-full", riskBg(selected.riskScore))} style={{ width: `${selected.riskScore}%` }} />
                 </div>
               </div>
               {/* Baseline vs recent */}
               <div>
-                <div className="text-xs text-slate-500 font-mono mb-2 tracking-wider">BASELINE vs RECENT</div>
+                <div className="text-xs text-muted-foreground font-mono mb-2 tracking-wider">BASELINE vs RECENT</div>
                 <div className="space-y-2">
                   {[
                     ["Login Time", selected.baseline.loginTime, selected.recent.loginTime],
@@ -222,11 +223,11 @@ export default function BehavioralAnalytics() {
                     ["Geography", selected.baseline.typicalGeo, selected.recent.geo],
                   ].map(([k, base, curr]) => (
                     <div key={String(k)} className="text-xs font-mono">
-                      <div className="text-slate-500 mb-0.5">{k}</div>
+                      <div className="text-muted-foreground mb-0.5">{k}</div>
                       <div className="flex gap-2 items-center">
-                        <span className="text-slate-400 bg-slate-800/60 px-2 py-0.5 rounded text-[10px]">{base}</span>
-                        <span className="text-slate-600">→</span>
-                        <span className={cn("px-2 py-0.5 rounded text-[10px]",
+                        <span className="text-muted-foreground bg-muted/60 px-2 py-0.5 text-[10px]">{base}</span>
+                        <span className="text-muted-foreground">→</span>
+                        <span className={cn("px-2 py-0.5 text-[10px]",
                           base === curr ? "text-emerald-400 bg-emerald-500/10" : "text-red-400 bg-red-500/10"
                         )}>{curr}</span>
                       </div>
@@ -237,10 +238,10 @@ export default function BehavioralAnalytics() {
               {/* Flags */}
               {selected.flags.length > 0 && (
                 <div>
-                  <div className="text-xs text-slate-500 font-mono mb-2 tracking-wider">ANOMALY FLAGS</div>
+                  <div className="text-xs text-muted-foreground font-mono mb-2 tracking-wider">ANOMALY FLAGS</div>
                   <div className="space-y-1.5">
                     {selected.flags.map(f => (
-                      <div key={f} className="flex items-start gap-2 text-xs font-mono text-red-400 bg-red-500/10 border border-red-500/20 rounded px-2 py-1.5">
+                      <div key={f} className="flex items-start gap-2 text-xs font-mono text-red-400 bg-red-500/10 border border-red-500/20 px-2 py-1.5">
                         <AlertTriangle className="w-3 h-3 mt-0.5 flex-shrink-0" />{f}
                       </div>
                     ))}
@@ -250,8 +251,8 @@ export default function BehavioralAnalytics() {
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center h-full text-center py-12 space-y-3">
-              <Eye className="w-10 h-10 text-slate-700" />
-              <p className="text-xs text-slate-600 font-mono">Select an entity to view behavioral profile</p>
+              <Eye className="w-10 h-10 text-muted-foreground/30" />
+              <p className="text-xs text-muted-foreground font-mono">Select an entity to view behavioral profile</p>
             </div>
           )}
         </div>

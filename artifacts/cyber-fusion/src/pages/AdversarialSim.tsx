@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
-import { Crosshair, Play, Square, Globe, Server, Wifi, Bug, Brain, FileText, Clock, Download, RotateCcw } from "lucide-react";
+import { Crosshair, Play, Square, Globe, Server, Wifi, Bug, Brain, FileText, Clock, Download, ZoomIn, ZoomOut, RotateCcw, Image } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/hooks/use-toast";
 
 interface ScanPhase {
   id: string;
@@ -27,7 +28,7 @@ interface Finding {
 interface ScanRecord {
   id: string;
   target: string;
-  startedAt: Date;
+  startedAt: string;
   duration: number;
   findings: Finding[];
 }
@@ -71,7 +72,7 @@ function phaseLogs(phaseId: string, target: string): string[] {
     recon:    [`[*] Initializing subdomain enumeration for ${d}`, `[+] Found: api.${d} → 93.184.216.40`, `[+] Found: staging.${d} → 10.0.0.15 (internal)`, `[+] Found: dev.${d} → 10.0.0.20 (internal)`, `[+] Found: admin.${d} → 93.184.216.60`, `[*] WHOIS: Registrar NameCheap · Cloudflare NS`, `[*] DNS: 3 A, 1 MX, 2 TXT, 2 NS records`, `[+] 4 subdomains discovered — 2 internal IPs leaked`],
     portscan: [`[*] SYN scan on ${d}`, `[+] 22/tcp   OPEN  ssh        OpenSSH 8.9`, `[+] 80/tcp   OPEN  http       nginx 1.24`, `[+] 443/tcp  OPEN  https      nginx 1.24`, `[+] 3000/tcp OPEN  http-alt   Express`, `[!] 5432/tcp OPEN  postgresql — INTERNET EXPOSED`, `[+] 8080/tcp OPEN  http-proxy AdminPanel`, `[!] Database exposed on public interface`],
     http:     [`[*] Probing HTTP services...`, `[+] ${d}:80  → HTTP 301 → https`, `[+] ${d}:443 → HTTP 200 React App`, `[+] ${d}:8080→ HTTP 200 Admin Panel`, `[+] Server: nginx/1.24.0`, `[+] X-Powered-By: Express 4.18.2`, `[!] Content-Security-Policy: MISSING`, `[+] Screenshots captured for 3 services`],
-    vulnscan: [`[*] Loading 2,847 nuclei templates`, `[*] Scanning ${d} — all templates`, `[!] CVE-2026-8821: HTTP/2 RCE — CRITICAL`, `[!] .git directory exposed — HIGH`, `[!] Open redirect in /auth/callback — HIGH`, `[+] TLS 1.0 enabled — MEDIUM`, `[+] CORS wildcard misconfiguration — MEDIUM`, `[+] Scan complete — ${generateFindings(target).length} findings`],
+    vulnscan: [`[*] Loading 2,847 nuclei templates`, `[*] Scanning ${d} — all templates`, `[!] CVE-2026-8821: HTTP/2 RCE — CRITICAL`, `[!] .git directory exposed — HIGH`, `[!] Open redirect in /auth/callback — HIGH`, `[+] TLS 1.0 enabled — MEDIUM`, `[+] CORS wildcard misconfiguration — MEDIUM`, `[+] Scan complete`],
     ai:       [`[*] Correlating with MITRE ATT&CK framework`, `[*] Mapping attack vectors to kill chain`, `[+] Initial Access: T1190 — Exploit public-facing app`, `[+] Lateral Movement: T1021 via exposed PostgreSQL`, `[+] Credential Access: T1213 via .git exposure`, `[+] Exfiltration risk: CRITICAL via SQLi chain`, `[*] Generating adversarial kill chain...`, `[+] AI report ready`],
   };
   return map[phaseId] ?? [];
@@ -118,7 +119,6 @@ const SEV_STYLE: Record<string, string> = {
 
 type Tab = "scanner" | "graph" | "report" | "history";
 
-// Simple static graph nodes/edges
 const GRAPH_NODES = [
   { id: "atk",   label: "ATTACKER",      type: "red",    x: 60,  y: 180 },
   { id: "net",   label: "INTERNET",      type: "gray",   x: 200, y: 180 },
@@ -142,7 +142,25 @@ const NODE_STROKE: Record<string, string> = {
   red: "hsl(var(--destructive))", cyan: "hsl(var(--primary))", gray: "hsl(var(--muted-foreground))", orange: "hsl(var(--accent))",
 };
 
+const LS_KEY = "rf-adversarial-history";
+
+function loadHistory(): ScanRecord[] {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveHistory(h: ScanRecord[]) {
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify(h.slice(0, 20)));
+  } catch {}
+}
+
 export default function AdversarialSim() {
+  const { toast } = useToast();
   const [tab, setTab]               = useState<Tab>("scanner");
   const [target, setTarget]         = useState("");
   const [isScanning, setIsScanning] = useState(false);
@@ -150,10 +168,12 @@ export default function AdversarialSim() {
     PHASE_DEFS.map(p => ({ ...p, status: "pending" as const, findings: 0, logs: [] }))
   );
   const [findings, setFindings]     = useState<Finding[]>([]);
-  const [history, setHistory]       = useState<ScanRecord[]>([]);
+  const [history, setHistory]       = useState<ScanRecord[]>(loadHistory);
   const [logLines, setLogLines]     = useState<string[]>([]);
   const [report, setReport]         = useState("");
+  const [zoom, setZoom]             = useState(1.0);
   const logRef   = useRef<HTMLDivElement>(null);
+  const graphRef = useRef<SVGSVGElement>(null);
   const abortRef = useRef(false);
 
   useEffect(() => {
@@ -192,13 +212,60 @@ export default function AdversarialSim() {
 
     if (!abortRef.current) {
       const dur = (Date.now() - start) / 1000;
-      setHistory(prev => [{ id: `s${Date.now()}`, target, startedAt: new Date(), duration: dur, findings: genFindings }, ...prev.slice(0, 9)]);
+      const newRecord: ScanRecord = { id: `s${Date.now()}`, target, startedAt: new Date().toISOString(), duration: dur, findings: genFindings };
+      setHistory(prev => {
+        const updated = [newRecord, ...prev.slice(0, 19)];
+        saveHistory(updated);
+        return updated;
+      });
       setLogLines(prev => [...prev, `[+] Scan complete — ${genFindings.length} findings in ${dur.toFixed(1)}s`]);
     }
     setIsScanning(false);
   };
 
   const stopScan = () => { abortRef.current = true; setIsScanning(false); };
+
+  function exportGraphPng() {
+    const svg = graphRef.current;
+    if (!svg) return;
+    const serializer = new XMLSerializer();
+    const svgStr = serializer.serializeToString(svg);
+    const svgBlob = new Blob([svgStr], { type: "image/svg+xml;charset=utf-8" });
+    const url = URL.createObjectURL(svgBlob);
+    const img = new window.Image();
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = 620 * 2;
+      canvas.height = 360 * 2;
+      const ctx = canvas.getContext("2d")!;
+      ctx.scale(2, 2);
+      ctx.fillStyle = "hsl(210, 45%, 7%)";
+      ctx.fillRect(0, 0, 620, 360);
+      ctx.drawImage(img, 0, 0, 620, 360);
+      URL.revokeObjectURL(url);
+      canvas.toBlob(blob => {
+        if (!blob) return;
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = `attack-graph-${target || "scan"}-${Date.now()}.png`;
+        a.click();
+        URL.revokeObjectURL(a.href);
+        toast({ title: "Graph exported", description: "Attack graph saved as PNG." });
+      }, "image/png");
+    };
+    img.src = url;
+  }
+
+  function exportReport() {
+    if (!report) return;
+    const blob = new Blob([report], { type: "text/plain" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `adversarial-report-${target || "scan"}-${Date.now()}.txt`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+    toast({ title: "Report exported", description: "Assessment report downloaded." });
+  }
 
   return (
     <div className="space-y-6">
@@ -218,6 +285,9 @@ export default function AdversarialSim() {
         {(["scanner", "graph", "report", "history"] as Tab[]).map(t => (
           <button key={t} onClick={() => setTab(t)} className={cn("px-4 py-2 text-xs font-mono tracking-widest border-b-2 transition-colors", tab === t ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground")}>
             {t.toUpperCase()}
+            {t === "history" && history.length > 0 && (
+              <span className="ml-1.5 text-muted-foreground">{history.length}</span>
+            )}
             {t === "scanner" && findings.length > 0 && (
               <span className="ml-2 text-destructive">{findings.filter(f => f.severity === "critical" || f.severity === "high").length}</span>
             )}
@@ -326,31 +396,64 @@ export default function AdversarialSim() {
       {/* ── ATTACK GRAPH ── */}
       {tab === "graph" && (
         <div className="space-y-4">
-          <div className="text-xs font-mono text-muted-foreground">ATTACK GRAPH — {target || "NO SCAN RUN"}</div>
+          <div className="flex items-center justify-between">
+            <div className="text-xs font-mono text-muted-foreground">ATTACK GRAPH — {target || "NO SCAN RUN"}</div>
+            {findings.length > 0 && (
+              <div className="flex items-center gap-2">
+                <button onClick={() => setZoom(z => Math.max(0.4, z - 0.2))}
+                  className="border border-border text-muted-foreground hover:border-primary hover:text-primary transition-colors p-1.5">
+                  <ZoomOut className="h-3.5 w-3.5" />
+                </button>
+                <span className="text-xs font-mono text-muted-foreground w-10 text-center">{Math.round(zoom * 100)}%</span>
+                <button onClick={() => setZoom(z => Math.min(3, z + 0.2))}
+                  className="border border-border text-muted-foreground hover:border-primary hover:text-primary transition-colors p-1.5">
+                  <ZoomIn className="h-3.5 w-3.5" />
+                </button>
+                <button onClick={() => setZoom(1.0)}
+                  className="border border-border text-muted-foreground hover:border-primary hover:text-primary transition-colors p-1.5" title="Reset zoom">
+                  <RotateCcw className="h-3.5 w-3.5" />
+                </button>
+                <button onClick={exportGraphPng}
+                  className="flex items-center gap-1.5 border border-border text-muted-foreground hover:border-primary hover:text-primary transition-colors px-2.5 py-1.5 text-xs font-mono">
+                  <Image className="h-3.5 w-3.5" />EXPORT PNG
+                </button>
+              </div>
+            )}
+          </div>
           {findings.length === 0 ? (
             <div className="text-center py-16 text-muted-foreground font-mono text-sm">
               <Bug className="h-10 w-10 mx-auto mb-3 opacity-20" />RUN A SCAN TO GENERATE ATTACK GRAPH
             </div>
           ) : (
-            <div className="bg-card border border-border p-4">
-              <svg viewBox="0 0 620 360" className="w-full h-64">
-                {GRAPH_EDGES.map((e, i) => {
-                  const f = GRAPH_NODES.find(n => n.id === e.from)!;
-                  const t = GRAPH_NODES.find(n => n.id === e.to)!;
-                  return (
-                    <g key={i}>
-                      <line x1={f.x} y1={f.y} x2={t.x} y2={t.y} stroke="hsl(var(--primary))" strokeWidth="1" strokeOpacity="0.35" strokeDasharray="4 3" />
-                      <text x={(f.x + t.x) / 2} y={(f.y + t.y) / 2 - 5} fill="hsl(var(--muted-foreground))" fontSize="7" textAnchor="middle" fontFamily="monospace">{e.label}</text>
+            <div className="bg-card border border-border p-4 overflow-hidden">
+              <div style={{ overflow: "auto" }}>
+                <svg
+                  ref={graphRef}
+                  viewBox="0 0 620 360"
+                  width={620 * zoom}
+                  height={360 * zoom}
+                  xmlns="http://www.w3.org/2000/svg"
+                  style={{ display: "block" }}
+                >
+                  <rect width="620" height="360" fill="hsl(210, 45%, 7%)" />
+                  {GRAPH_EDGES.map((e, i) => {
+                    const f = GRAPH_NODES.find(n => n.id === e.from)!;
+                    const t = GRAPH_NODES.find(n => n.id === e.to)!;
+                    return (
+                      <g key={i}>
+                        <line x1={f.x} y1={f.y} x2={t.x} y2={t.y} stroke="hsl(var(--primary))" strokeWidth="1" strokeOpacity="0.35" strokeDasharray="4 3" />
+                        <text x={(f.x + t.x) / 2} y={(f.y + t.y) / 2 - 5} fill="hsl(var(--muted-foreground))" fontSize="7" textAnchor="middle" fontFamily="monospace">{e.label}</text>
+                      </g>
+                    );
+                  })}
+                  {GRAPH_NODES.map(n => (
+                    <g key={n.id} transform={`translate(${n.x},${n.y})`}>
+                      <rect x="-44" y="-15" width="88" height="30" rx="2" fill="hsl(var(--card))" stroke={NODE_STROKE[n.type]} strokeWidth="1.2" strokeOpacity="0.7" />
+                      <text fill="hsl(var(--foreground))" fontSize="8" textAnchor="middle" dy="4" fontFamily="monospace" fontWeight="bold">{n.label}</text>
                     </g>
-                  );
-                })}
-                {GRAPH_NODES.map(n => (
-                  <g key={n.id} transform={`translate(${n.x},${n.y})`}>
-                    <rect x="-44" y="-15" width="88" height="30" rx="2" fill="hsl(var(--card))" stroke={NODE_STROKE[n.type]} strokeWidth="1.2" strokeOpacity="0.7" />
-                    <text fill="hsl(var(--foreground))" fontSize="8" textAnchor="middle" dy="4" fontFamily="monospace" fontWeight="bold">{n.label}</text>
-                  </g>
-                ))}
-              </svg>
+                  ))}
+                </svg>
+              </div>
               <div className="flex gap-5 mt-3 text-xs font-mono text-muted-foreground border-t border-border pt-3">
                 <span className="flex items-center gap-1.5"><span className="h-2 w-2 border border-destructive/70" />Attacker</span>
                 <span className="flex items-center gap-1.5"><span className="h-2 w-2 border border-primary/70" />Target Service</span>
@@ -373,7 +476,7 @@ export default function AdversarialSim() {
             <div className="bg-card border border-border p-6">
               <div className="flex items-center justify-between mb-4">
                 <div className="text-xs font-mono text-muted-foreground tracking-widest">AI-GENERATED ASSESSMENT REPORT</div>
-                <button className="flex items-center gap-1.5 text-xs font-mono text-primary border border-primary/30 px-3 py-1.5 hover:bg-primary/10 transition-colors">
+                <button onClick={exportReport} className="flex items-center gap-1.5 text-xs font-mono text-primary border border-primary/30 px-3 py-1.5 hover:bg-primary/10 transition-colors">
                   <Download className="h-3.5 w-3.5" />EXPORT
                 </button>
               </div>
@@ -405,32 +508,33 @@ export default function AdversarialSim() {
               <Clock className="h-10 w-10 mx-auto mb-3 opacity-20" />NO SCAN HISTORY
             </div>
           ) : (
-            history.map(scan => {
-              const crit = scan.findings.filter(f => f.severity === "critical").length;
-              const high = scan.findings.filter(f => f.severity === "high").length;
-              return (
-                <div key={scan.id} className="bg-card border border-border p-4 flex items-center justify-between hover:border-primary/30 transition-colors">
-                  <div className="flex items-center gap-3">
-                    <Crosshair className="h-4 w-4 text-muted-foreground" />
-                    <div>
-                      <div className="text-sm font-medium">{scan.target}</div>
-                      <div className="text-xs font-mono text-muted-foreground">{scan.startedAt.toLocaleString()} · {scan.duration.toFixed(1)}s</div>
+            <>
+              <div className="flex items-center justify-between text-xs font-mono text-muted-foreground">
+                <span>{history.length} SAVED SCANS — persisted across sessions</span>
+                <button onClick={() => { setHistory([]); saveHistory([]); }}
+                  className="text-destructive/60 hover:text-destructive transition-colors">CLEAR ALL</button>
+              </div>
+              {history.map(scan => {
+                const crit = scan.findings.filter(f => f.severity === "critical").length;
+                const high = scan.findings.filter(f => f.severity === "high").length;
+                return (
+                  <div key={scan.id} className="bg-card border border-border p-4 hover:border-primary/30 transition-colors cursor-pointer"
+                    onClick={() => { setTarget(scan.target); setFindings(scan.findings); setReport(buildReport(scan.target, scan.findings)); setTab("scanner"); }}>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-mono font-bold">{scan.target}</span>
+                      <span className="text-xs font-mono text-muted-foreground">
+                        {new Date(scan.startedAt).toLocaleString()} · {scan.duration.toFixed(1)}s
+                      </span>
+                    </div>
+                    <div className="flex gap-3 text-xs font-mono">
+                      <span className="text-muted-foreground">{scan.findings.length} findings</span>
+                      {crit > 0 && <span className="text-destructive">{crit} critical</span>}
+                      {high > 0 && <span className="text-accent">{high} high</span>}
                     </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    {crit > 0 && <span className="text-xs font-mono text-destructive">{crit} CRITICAL</span>}
-                    {high > 0 && <span className="text-xs font-mono text-accent">{high} HIGH</span>}
-                    <button
-                      onClick={() => { setTarget(scan.target); setFindings(scan.findings); setReport(buildReport(scan.target, scan.findings)); setTab("scanner"); }}
-                      className="text-muted-foreground hover:text-primary transition-colors"
-                      title="Re-run scan"
-                    >
-                      <RotateCcw className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                </div>
-              );
-            })
+                );
+              })}
+            </>
           )}
         </div>
       )}

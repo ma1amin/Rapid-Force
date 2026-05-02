@@ -91,12 +91,12 @@ const severityColors: Record<string, string> = {
   critical: "text-red-400 border-red-500/40 bg-red-500/10",
   high:     "text-orange-400 border-orange-500/40 bg-orange-500/10",
   medium:   "text-yellow-400 border-yellow-500/40 bg-yellow-500/10",
-  info:     "text-cyan-400 border-cyan-500/40 bg-cyan-500/10",
+  info:     "text-primary border-primary/40 bg-primary/10",
 };
 const statusColors: Record<string, string> = {
   active: "text-emerald-400 border-emerald-500/40 bg-emerald-500/10",
   paused: "text-yellow-400 border-yellow-500/40 bg-yellow-500/10",
-  draft:  "text-slate-400 border-slate-500/40 bg-slate-500/10",
+  draft:  "text-muted-foreground border-border bg-muted/30",
 };
 const statusIcons: Record<string, React.ReactNode> = {
   active: <Play className="w-3 h-3" />,
@@ -167,21 +167,22 @@ export default function Playbooks() {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold tracking-widest text-cyan-400 font-mono">AI PLAYBOOKS</h1>
-          <p className="text-xs text-slate-500 mt-0.5 font-mono">Automated response workflows · SOAR engine</p>
+          <div className="text-xs font-mono text-primary/70 tracking-widest mb-1">RAPID FORCE // AI SOAR</div>
+          <h1 className="text-2xl font-bold tracking-wider">AI PLAYBOOKS</h1>
+          <p className="text-xs text-muted-foreground mt-0.5 font-mono">Automated response workflows · SOAR engine</p>
         </div>
         <div className="flex items-center gap-2">
           <Button onClick={() => setShowSuggestions(s => !s)}
-            variant="ghost" className="border border-slate-700/50 text-slate-400 hover:text-cyan-400 hover:border-cyan-500/40 font-mono text-xs gap-2 h-8">
+            variant="ghost" className="border border-border text-muted-foreground hover:text-primary hover:border-primary/40 font-mono text-xs gap-2 h-8">
             <Lightbulb className="w-3.5 h-3.5" /> SUGGESTIONS
             <ChevronDown className={cn("w-3 h-3 transition-transform", showSuggestions && "rotate-180")} />
           </Button>
           <Button onClick={openBlank}
-            className="bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/20 font-mono text-xs gap-2">
+            className="bg-primary/10 border border-primary/30 text-primary hover:bg-primary/20 font-mono text-xs gap-2">
             <Plus className="w-4 h-4" /> NEW PLAYBOOK
           </Button>
         </div>
@@ -189,26 +190,26 @@ export default function Playbooks() {
 
       {/* Suggestions panel */}
       {showSuggestions && (
-        <div className="bg-slate-900/80 border border-cyan-500/20 rounded-lg p-4">
+        <div className="bg-card border border-primary/20 p-4">
           <div className="flex items-center gap-2 mb-3">
-            <Lightbulb className="w-4 h-4 text-cyan-400" />
-            <span className="text-xs font-mono text-cyan-400 tracking-wider">RECOMMENDED PLAYBOOKS FOR YOUR THREAT LANDSCAPE</span>
+            <Lightbulb className="w-4 h-4 text-primary" />
+            <span className="text-xs font-mono text-primary tracking-wider">RECOMMENDED PLAYBOOKS FOR YOUR THREAT LANDSCAPE</span>
           </div>
           <div className="grid grid-cols-2 gap-2">
             {TEMPLATE_SUGGESTIONS.map(t => (
               <button key={t.name} onClick={() => prefillFromTemplate(t)}
-                className="text-left p-3 border border-slate-700/50 rounded-lg hover:border-cyan-500/40 hover:bg-slate-800/60 transition-all group">
+                className="text-left p-3 border border-border hover:border-primary/40 hover:bg-muted/40 transition-all group">
                 <div className="flex items-start justify-between gap-2 mb-1">
-                  <span className="text-xs font-semibold text-slate-200 font-mono group-hover:text-cyan-300 transition-colors">{t.name}</span>
+                  <span className="text-xs font-semibold font-mono group-hover:text-primary transition-colors">{t.name}</span>
                   <Badge className={cn("text-[9px] font-mono border px-1.5 py-0 flex-shrink-0", severityColors[t.severity])}>{t.severity.toUpperCase()}</Badge>
                 </div>
-                <p className="text-[10px] text-slate-500 font-mono leading-relaxed mb-2">{t.description}</p>
-                <div className="flex gap-3 text-[10px] font-mono text-slate-600">
+                <p className="text-[10px] text-muted-foreground font-mono leading-relaxed mb-2">{t.description}</p>
+                <div className="flex gap-3 text-[10px] font-mono text-muted-foreground">
                   <span>{t.steps} steps</span>
                   <span>{t.automationRate}% auto</span>
-                  <span className="text-slate-500">{t.category}</span>
+                  <span>{t.category}</span>
                 </div>
-                <div className="mt-2 text-[10px] font-mono text-cyan-500 opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="mt-2 text-[10px] font-mono text-primary opacity-0 group-hover:opacity-100 transition-opacity">
                   Click to use as template →
                 </div>
               </button>
@@ -220,17 +221,17 @@ export default function Playbooks() {
       {/* Stats */}
       <div className="grid grid-cols-4 gap-4">
         {[
-          { label: "TOTAL PLAYBOOKS", value: playbooks.length, icon: BookOpen, color: "cyan" },
-          { label: "ACTIVE", value: activeCount, icon: Play, color: "emerald" },
-          { label: "TOTAL EXECUTIONS", value: totalRuns.toLocaleString(), icon: Zap, color: "amber" },
-          { label: "AVG AUTOMATION", value: `${avgAutomation}%`, icon: Bot, color: "violet" },
+          { label: "TOTAL PLAYBOOKS",  value: playbooks.length,              icon: BookOpen, color: "text-primary"    },
+          { label: "ACTIVE",           value: activeCount,                   icon: Play,     color: "text-emerald-400" },
+          { label: "TOTAL EXECUTIONS", value: totalRuns.toLocaleString(),    icon: Zap,      color: "text-amber-400"   },
+          { label: "AVG AUTOMATION",   value: `${avgAutomation}%`,           icon: Bot,      color: "text-violet-400"  },
         ].map(stat => (
-          <div key={stat.label} className="bg-slate-900/60 border border-slate-700/50 rounded-lg p-4">
+          <div key={stat.label} className="bg-card border border-border p-4">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-xs text-slate-500 font-mono tracking-wider">{stat.label}</span>
-              <stat.icon className={cn("w-4 h-4", `text-${stat.color}-400`)} />
+              <span className="text-xs text-muted-foreground font-mono tracking-wider">{stat.label}</span>
+              <stat.icon className={cn("w-4 h-4", stat.color)} />
             </div>
-            <div className={cn("text-2xl font-bold font-mono", `text-${stat.color}-400`)}>{stat.value}</div>
+            <div className={cn("text-2xl font-bold font-mono", stat.color)}>{stat.value}</div>
           </div>
         ))}
       </div>
@@ -238,23 +239,23 @@ export default function Playbooks() {
       {/* Filters */}
       <div className="flex gap-3 items-center flex-wrap">
         <div className="relative flex-1 min-w-48 max-w-xs">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
           <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search playbooks..."
-            className="pl-9 bg-slate-900/60 border-slate-700/50 text-slate-200 placeholder-slate-600 font-mono text-xs h-8" />
+            className="pl-9 bg-card border-border font-mono text-xs h-8" />
         </div>
         <div className="flex gap-1.5 flex-wrap">
           {CATEGORIES.map(c => (
             <button key={c} onClick={() => setCategory(c)}
-              className={cn("px-2.5 py-1 rounded text-xs font-mono border transition-all",
-                category === c ? "bg-cyan-500/20 border-cyan-500/50 text-cyan-400" : "bg-slate-900/60 border-slate-700/50 text-slate-400 hover:border-slate-500"
+              className={cn("px-2.5 py-1 text-xs font-mono border transition-all",
+                category === c ? "bg-primary/20 border-primary/50 text-primary" : "bg-card border-border text-muted-foreground hover:border-border/80"
               )}>{c}</button>
           ))}
         </div>
         <div className="flex gap-1.5">
           {STATUSES.map(s => (
             <button key={s} onClick={() => setStatus(s)}
-              className={cn("px-2.5 py-1 rounded text-xs font-mono border transition-all capitalize",
-                status === s ? "bg-cyan-500/20 border-cyan-500/50 text-cyan-400" : "bg-slate-900/60 border-slate-700/50 text-slate-400 hover:border-slate-500"
+              className={cn("px-2.5 py-1 text-xs font-mono border transition-all capitalize",
+                status === s ? "bg-primary/20 border-primary/50 text-primary" : "bg-card border-border text-muted-foreground hover:border-border/80"
               )}>{s}</button>
           ))}
         </div>
@@ -265,35 +266,35 @@ export default function Playbooks() {
         <div className="col-span-2 space-y-3">
           {filtered.map(pb => (
             <div key={pb.id} onClick={() => setSelected(pb)}
-              className={cn("bg-slate-900/60 border rounded-lg p-4 cursor-pointer transition-all hover:border-cyan-500/40 group",
-                selected?.id === pb.id ? "border-cyan-500/60 bg-slate-900/80" : "border-slate-700/50"
+              className={cn("bg-card border p-4 cursor-pointer transition-all hover:border-primary/40 group",
+                selected?.id === pb.id ? "border-primary/60" : "border-border"
               )}>
               <div className="flex items-start justify-between mb-2">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1 flex-wrap">
-                    <span className="text-sm font-semibold text-slate-100 font-mono">{pb.name}</span>
+                    <span className="text-sm font-semibold font-mono">{pb.name}</span>
                     <Badge className={cn("text-[10px] font-mono border px-1.5 py-0", severityColors[pb.severity])}>{pb.severity.toUpperCase()}</Badge>
                     <Badge className={cn("text-[10px] font-mono border px-1.5 py-0 flex items-center gap-1", statusColors[pb.status])}>
                       {statusIcons[pb.status]}{pb.status.toUpperCase()}
                     </Badge>
                   </div>
-                  <p className="text-xs text-slate-500 font-mono">{pb.description}</p>
+                  <p className="text-xs text-muted-foreground font-mono">{pb.description}</p>
                 </div>
-                <ChevronRight className="w-4 h-4 text-slate-600 group-hover:text-cyan-400 transition-colors ml-3 mt-0.5 flex-shrink-0" />
+                <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors ml-3 mt-0.5 flex-shrink-0" />
               </div>
-              <div className="flex items-center gap-1 text-xs font-mono text-slate-500 mt-2">
+              <div className="flex items-center gap-1 text-xs font-mono text-muted-foreground mt-2">
                 <Zap className="w-3 h-3 flex-shrink-0" />
                 <span className="truncate">{pb.trigger}</span>
               </div>
-              <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-700/50">
-                <div className="flex gap-4 text-xs font-mono text-slate-500">
+              <div className="flex items-center justify-between mt-3 pt-3 border-t border-border">
+                <div className="flex gap-4 text-xs font-mono text-muted-foreground">
                   <span>{pb.steps} steps</span>
                   <span>{pb.completedRuns} runs</span>
                   {pb.completedRuns > 0 && <span>avg {pb.avgRuntime}</span>}
                   <span className="text-emerald-400">{pb.automationRate}% auto</span>
                 </div>
                 <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <Button size="sm" variant="ghost" className="h-6 px-2 text-xs font-mono text-slate-400 hover:text-cyan-400 hover:bg-cyan-500/10"
+                  <Button size="sm" variant="ghost" className="h-6 px-2 text-xs font-mono text-muted-foreground hover:text-primary hover:bg-primary/10"
                     onClick={e => { e.stopPropagation(); setSelected(pb); }}>
                     <Eye className="w-3 h-3 mr-1" />VIEW
                   </Button>
@@ -308,26 +309,26 @@ export default function Playbooks() {
             </div>
           ))}
           {filtered.length === 0 && (
-            <div className="text-center py-12 text-slate-600 font-mono text-sm border border-dashed border-slate-800 rounded-lg">
+            <div className="text-center py-12 text-muted-foreground font-mono text-sm border border-dashed border-border">
               No playbooks match your filters.
             </div>
           )}
         </div>
 
         {/* Detail panel */}
-        <div className="bg-slate-900/60 border border-slate-700/50 rounded-lg p-5 self-start sticky top-6">
+        <div className="bg-card border border-border p-5 self-start sticky top-6">
           {selected ? (
             <div className="space-y-4">
               <div className="flex items-start justify-between gap-2">
                 <div className="flex items-start gap-2">
-                  <BookOpen className="w-4 h-4 text-cyan-400 mt-0.5 flex-shrink-0" />
-                  <h3 className="text-sm font-bold text-slate-100 font-mono leading-tight">{selected.name}</h3>
+                  <BookOpen className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
+                  <h3 className="text-sm font-bold font-mono leading-tight">{selected.name}</h3>
                 </div>
-                <button onClick={() => setSelected(null)} className="text-slate-600 hover:text-slate-400 flex-shrink-0">
+                <button onClick={() => setSelected(null)} className="text-muted-foreground hover:text-foreground flex-shrink-0">
                   <X className="w-3.5 h-3.5" />
                 </button>
               </div>
-              <p className="text-xs text-slate-500 font-mono">{selected.description}</p>
+              <p className="text-xs text-muted-foreground font-mono">{selected.description}</p>
               <div className="space-y-2">
                 {[
                   ["Category", selected.category],
@@ -339,15 +340,15 @@ export default function Playbooks() {
                   ["Automation", `${selected.automationRate}%`],
                 ].map(([k, v]) => (
                   <div key={String(k)} className="flex justify-between text-xs font-mono gap-2">
-                    <span className="text-slate-500 flex-shrink-0">{k}</span>
-                    <span className="text-slate-200 text-right truncate">{String(v)}</span>
+                    <span className="text-muted-foreground flex-shrink-0">{k}</span>
+                    <span className="text-foreground text-right truncate">{String(v)}</span>
                   </div>
                 ))}
               </div>
               <div>
-                <div className="text-xs text-slate-500 font-mono mb-1">AUTOMATION RATE</div>
-                <div className="w-full bg-slate-800 rounded-full h-2">
-                  <div className="bg-emerald-500 h-2 rounded-full transition-all" style={{ width: `${selected.automationRate}%` }} />
+                <div className="text-xs text-muted-foreground font-mono mb-1">AUTOMATION RATE</div>
+                <div className="w-full bg-muted h-2">
+                  <div className="bg-emerald-500 h-2 transition-all" style={{ width: `${selected.automationRate}%` }} />
                 </div>
                 <div className="text-right text-xs text-emerald-400 font-mono mt-1">{selected.automationRate}%</div>
               </div>
@@ -359,7 +360,7 @@ export default function Playbooks() {
                   </Button>
                 )}
                 {selected.status === "draft" && (
-                  <Button className="w-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/20 font-mono text-xs gap-2"
+                  <Button className="w-full bg-primary/10 border border-primary/30 text-primary hover:bg-primary/20 font-mono text-xs gap-2"
                     onClick={() => {
                       setPlaybooks(prev => prev.map(p => p.id === selected.id ? { ...p, status: "active" as PlaybookStatus } : p));
                       setSelected(prev => prev ? { ...prev, status: "active" } : null);
@@ -376,15 +377,15 @@ export default function Playbooks() {
                       toast({ title: "Playbook resumed", description: `"${selected.name}" has been reactivated.` });
                     }}>
                     <Play className="w-3 h-3" /> RESUME PLAYBOOK
-                  </Button>
+                </Button>
                 )}
               </div>
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center text-center py-12 space-y-3">
-              <BookOpen className="w-10 h-10 text-slate-700" />
-              <p className="text-xs text-slate-600 font-mono">Select a playbook to view details</p>
-              <button onClick={openBlank} className="text-xs font-mono text-cyan-500/70 hover:text-cyan-400 transition-colors flex items-center gap-1 mt-1">
+              <BookOpen className="w-10 h-10 text-muted-foreground/30" />
+              <p className="text-xs text-muted-foreground font-mono">Select a playbook to view details</p>
+              <button onClick={openBlank} className="text-xs font-mono text-primary/70 hover:text-primary transition-colors flex items-center gap-1 mt-1">
                 <Plus className="w-3 h-3" /> or create a new one
               </button>
             </div>
@@ -394,84 +395,79 @@ export default function Playbooks() {
 
       {/* New Playbook Dialog */}
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-        <DialogContent className="bg-slate-900 border border-slate-700/70 text-slate-100 max-w-lg font-mono">
+        <DialogContent className="bg-popover border border-border text-popover-foreground max-w-lg font-mono">
           <DialogHeader>
-            <DialogTitle className="text-cyan-400 tracking-widest text-sm font-mono">NEW PLAYBOOK</DialogTitle>
+            <DialogTitle className="text-primary tracking-widest text-sm font-mono">NEW PLAYBOOK</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 pt-2">
-            {/* Name */}
             <div className="space-y-1.5">
-              <Label className="text-xs text-slate-400 tracking-wider">PLAYBOOK NAME *</Label>
+              <Label className="text-xs text-muted-foreground tracking-wider">PLAYBOOK NAME *</Label>
               <Input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
                 placeholder="e.g. Ransomware Containment Response"
-                className="bg-slate-800/80 border-slate-700/60 text-slate-100 placeholder-slate-600 font-mono text-xs h-9" />
+                className="bg-muted/60 border-border font-mono text-xs h-9" />
             </div>
-            {/* Description */}
             <div className="space-y-1.5">
-              <Label className="text-xs text-slate-400 tracking-wider">DESCRIPTION</Label>
+              <Label className="text-xs text-muted-foreground tracking-wider">DESCRIPTION</Label>
               <Textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-                placeholder="What does this playbook do? What threats does it address?"
-                className="bg-slate-800/80 border-slate-700/60 text-slate-100 placeholder-slate-600 font-mono text-xs resize-none h-20" />
+                placeholder="Describe what this playbook does and when it should run..."
+                className="bg-muted/60 border-border font-mono text-xs resize-none h-16" />
             </div>
-            {/* Trigger */}
             <div className="space-y-1.5">
-              <Label className="text-xs text-slate-400 tracking-wider">TRIGGER CONDITION *</Label>
+              <Label className="text-xs text-muted-foreground tracking-wider">TRIGGER CONDITION *</Label>
               <Input value={form.trigger} onChange={e => setForm(f => ({ ...f, trigger: e.target.value }))}
-                placeholder="e.g. Detection: Ransomware Activity"
-                className="bg-slate-800/80 border-slate-700/60 text-slate-100 placeholder-slate-600 font-mono text-xs h-9" />
+                placeholder="e.g. Detection: Ransomware / Encryption Activity"
+                className="bg-muted/60 border-border font-mono text-xs h-9" />
             </div>
-            {/* Category + Severity */}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label className="text-xs text-slate-400 tracking-wider">CATEGORY</Label>
+                <Label className="text-xs text-muted-foreground tracking-wider">CATEGORY</Label>
                 <Select value={form.category} onValueChange={v => setForm(f => ({ ...f, category: v }))}>
-                  <SelectTrigger className="bg-slate-800/80 border-slate-700/60 text-slate-200 font-mono text-xs h-9">
+                  <SelectTrigger className="bg-muted/60 border-border font-mono text-xs h-9">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent className="bg-slate-800 border-slate-700/60 text-slate-200 font-mono text-xs">
+                  <SelectContent>
                     {["Incident Response", "Threat Intel", "Identity", "Data Loss", "Vulnerability Mgmt", "Cloud Security", "Application Security"].map(c => (
-                      <SelectItem key={c} value={c}>{c}</SelectItem>
+                      <SelectItem key={c} value={c} className="font-mono text-xs">{c}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs text-slate-400 tracking-wider">SEVERITY</Label>
+                <Label className="text-xs text-muted-foreground tracking-wider">SEVERITY</Label>
                 <Select value={form.severity} onValueChange={v => setForm(f => ({ ...f, severity: v as PlaybookSeverity }))}>
-                  <SelectTrigger className="bg-slate-800/80 border-slate-700/60 text-slate-200 font-mono text-xs h-9">
+                  <SelectTrigger className="bg-muted/60 border-border font-mono text-xs h-9">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent className="bg-slate-800 border-slate-700/60 text-slate-200 font-mono text-xs">
+                  <SelectContent>
                     {(["critical", "high", "medium", "info"] as PlaybookSeverity[]).map(s => (
-                      <SelectItem key={s} value={s} className="capitalize">{s.toUpperCase()}</SelectItem>
+                      <SelectItem key={s} value={s} className="font-mono text-xs capitalize">{s}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
             </div>
-            {/* Steps + Automation */}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label className="text-xs text-slate-400 tracking-wider">NUMBER OF STEPS</Label>
-                <Input type="number" min={1} max={30} value={form.steps} onChange={e => setForm(f => ({ ...f, steps: e.target.value }))}
-                  className="bg-slate-800/80 border-slate-700/60 text-slate-100 font-mono text-xs h-9" />
+                <Label className="text-xs text-muted-foreground tracking-wider">STEPS</Label>
+                <Input type="number" min="1" max="50" value={form.steps} onChange={e => setForm(f => ({ ...f, steps: e.target.value }))}
+                  className="bg-muted/60 border-border font-mono text-xs h-9" />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs text-slate-400 tracking-wider">AUTOMATION RATE %</Label>
-                <Input type="number" min={0} max={100} value={form.automationRate} onChange={e => setForm(f => ({ ...f, automationRate: e.target.value }))}
-                  className="bg-slate-800/80 border-slate-700/60 text-slate-100 font-mono text-xs h-9" />
+                <Label className="text-xs text-muted-foreground tracking-wider">AUTOMATION RATE %</Label>
+                <Input type="number" min="0" max="100" value={form.automationRate} onChange={e => setForm(f => ({ ...f, automationRate: e.target.value }))}
+                  className="bg-muted/60 border-border font-mono text-xs h-9" />
               </div>
             </div>
             {formError && (
-              <div className="text-xs text-red-400 font-mono bg-red-500/10 border border-red-500/30 rounded px-3 py-2">{formError}</div>
+              <div className="text-xs font-mono text-destructive border border-destructive/30 bg-destructive/10 px-3 py-2">{formError}</div>
             )}
             <div className="flex gap-3 pt-1">
               <Button onClick={() => setModalOpen(false)} variant="ghost"
-                className="flex-1 border border-slate-700/60 text-slate-400 hover:text-slate-200 font-mono text-xs h-9">
+                className="flex-1 border border-border text-muted-foreground hover:text-foreground font-mono text-xs h-9">
                 CANCEL
               </Button>
               <Button onClick={handleCreate}
-                className="flex-1 bg-cyan-500/20 border border-cyan-500/40 text-cyan-400 hover:bg-cyan-500/30 font-mono text-xs h-9 gap-2">
+                className="flex-1 bg-primary/20 border border-primary/40 text-primary hover:bg-primary/30 font-mono text-xs h-9 gap-2">
                 <Plus className="w-3.5 h-3.5" /> CREATE PLAYBOOK
               </Button>
             </div>

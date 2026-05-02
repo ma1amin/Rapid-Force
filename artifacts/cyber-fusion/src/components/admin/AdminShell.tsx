@@ -6,6 +6,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
 import { useState, type ReactNode } from "react";
+import Footer from "@/components/layout/Footer";
 
 const nav = [
   { name: "Dashboard",      href: "/admin",                    icon: LayoutDashboard },
@@ -94,7 +95,12 @@ export default function AdminShell({ children }: { children: ReactNode }) {
         </div>
       </div>
 
-      <main className="flex-1 overflow-y-auto p-6">{children}</main>
+      <main className="flex-1 overflow-y-auto">
+        <div className="flex flex-col min-h-full">
+          <div className="flex-1 p-6">{children}</div>
+          <Footer />
+        </div>
+      </main>
     </div>
   );
 }

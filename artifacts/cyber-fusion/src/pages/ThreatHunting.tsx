@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Search, Play, Square, Globe, Server, Code2, Lock, Network, Shield, MapPin, ListTree, Plus, CheckCircle2, XCircle } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Search, Play, Square, Globe, Server, Code2, Lock, Network, Shield, MapPin, ListTree, Plus, CheckCircle2, XCircle, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface ReconModule {
@@ -25,6 +25,14 @@ interface Hypothesis {
   confidence: number;
   status: "open" | "investigating" | "confirmed" | "disproven";
   created: Date;
+}
+
+interface ScanHistoryEntry {
+  id: string;
+  target: string;
+  completedAt: string;
+  modules: string[];
+  results: { moduleId: string; issues: number; outputPreview: string }[];
 }
 
 const MODULES: ReconModule[] = [
@@ -75,7 +83,24 @@ const STATUS_STYLE: Record<Hypothesis["status"], string> = {
 };
 const STATUS_CYCLE: Hypothesis["status"][] = ["open", "investigating", "confirmed", "disproven"];
 
-type Tab = "workbench" | "hypotheses" | "queries";
+type Tab = "workbench" | "hypotheses" | "queries" | "history";
+
+const LS_KEY = "rf-hunting-history";
+
+function loadScanHistory(): ScanHistoryEntry[] {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveScanHistory(h: ScanHistoryEntry[]) {
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify(h.slice(0, 30)));
+  } catch {}
+}
 
 export default function ThreatHunting() {
   const [tab, setTab]                   = useState<Tab>("workbench");
@@ -87,6 +112,7 @@ export default function ThreatHunting() {
   const [showHypForm, setShowHypForm]   = useState(false);
   const [hypTitle, setHypTitle]         = useState("");
   const [hypTech, setHypTech]           = useState("");
+  const [scanHistory, setScanHistory]   = useState<ScanHistoryEntry[]>(loadScanHistory);
   const abortRef = { current: false };
 
   const toggleMod = (id: string) => {
@@ -100,6 +126,7 @@ export default function ThreatHunting() {
     setIsRunning(true);
     const ids = Array.from(selected);
     setResults(new Map(ids.map(id => [id, { moduleId: id, status: "pending" as const, output: [], issues: 0 }])));
+    const completedResults: { moduleId: string; issues: number; outputPreview: string }[] = [];
 
     for (const id of ids) {
       if (abortRef.current) break;
@@ -108,6 +135,22 @@ export default function ThreatHunting() {
       const output = MODULE_OUTPUT[id]?.(target) ?? [`[*] ${id} complete`];
       const issues = output.filter(l => l.includes("⚠") || l.includes("EXPOSED") || l.includes("MISSING")).length;
       setResults(prev => new Map(prev).set(id, { moduleId: id, status: "complete", output, issues }));
+      completedResults.push({ moduleId: id, issues, outputPreview: output[0] ?? "" });
+    }
+
+    if (!abortRef.current && completedResults.length > 0) {
+      const entry: ScanHistoryEntry = {
+        id: `hunt-${Date.now()}`,
+        target,
+        completedAt: new Date().toISOString(),
+        modules: completedResults.map(r => r.moduleId),
+        results: completedResults,
+      };
+      setScanHistory(prev => {
+        const updated = [entry, ...prev.slice(0, 29)];
+        saveScanHistory(updated);
+        return updated;
+      });
     }
     setIsRunning(false);
   };
@@ -137,9 +180,12 @@ export default function ThreatHunting() {
 
       {/* Tabs */}
       <div className="flex border-b border-border">
-        {(["workbench", "hypotheses", "queries"] as Tab[]).map(t => (
+        {(["workbench", "hypotheses", "queries", "history"] as Tab[]).map(t => (
           <button key={t} onClick={() => setTab(t)} className={cn("px-4 py-2 text-xs font-mono tracking-widest border-b-2 transition-colors", tab === t ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground")}>
             {t.toUpperCase()}
+            {t === "history" && scanHistory.length > 0 && (
+              <span className="ml-1.5 text-muted-foreground">{scanHistory.length}</span>
+            )}
           </button>
         ))}
       </div>
@@ -296,6 +342,48 @@ export default function ThreatHunting() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* ── HISTORY ── */}
+      {tab === "history" && (
+        <div className="space-y-3">
+          {scanHistory.length === 0 ? (
+            <div className="text-center py-16 text-muted-foreground font-mono text-sm">
+              <Clock className="h-10 w-10 mx-auto mb-3 opacity-20" />
+              NO RECON HISTORY — scans are saved automatically
+            </div>
+          ) : (
+            <>
+              <div className="flex items-center justify-between text-xs font-mono text-muted-foreground">
+                <span>{scanHistory.length} SAVED RECON RUNS — persisted across sessions</span>
+                <button onClick={() => { setScanHistory([]); saveScanHistory([]); }}
+                  className="text-destructive/60 hover:text-destructive transition-colors">CLEAR ALL</button>
+              </div>
+              {scanHistory.map(entry => {
+                const totalIssues = entry.results.reduce((s, r) => s + r.issues, 0);
+                return (
+                  <div key={entry.id} className="bg-card border border-border p-4 hover:border-primary/30 transition-colors cursor-pointer"
+                    onClick={() => { setTarget(entry.target); setTab("workbench"); }}>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-mono font-bold">{entry.target}</span>
+                      <span className="text-xs font-mono text-muted-foreground">
+                        {new Date(entry.completedAt).toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-4 text-xs font-mono text-muted-foreground">
+                      <span>{entry.modules.length} modules</span>
+                      {totalIssues > 0
+                        ? <span className="text-destructive">{totalIssues} issues found</span>
+                        : <span className="text-primary">All clean</span>
+                      }
+                      <span>{entry.modules.slice(0, 4).join(", ")}{entry.modules.length > 4 ? ` +${entry.modules.length - 4}` : ""}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </>
+          )}
         </div>
       )}
     </div>
