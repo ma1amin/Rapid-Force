@@ -1,7 +1,7 @@
 import { Link, useLocation } from "wouter";
 import {
   TerminalSquare, Cpu, Zap, Target, ShieldAlert, ActivitySquare,
-  FileCode2, Siren, Bot, Crosshair, Search, Key, Lock, LogOut, ChevronDown,
+  FileCode2, Siren, Bot, Crosshair, Search, Lock, LogOut, ChevronDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useLicenses, type ModuleKey } from "@/hooks/useLicenses";
@@ -96,23 +96,6 @@ export default function Sidebar({ onCopilotOpen, copilotOpen }: Props) {
           );
         })}
       </nav>
-
-      {/* Administration section — admin role only, hidden during impersonation */}
-      {user?.role === "admin" && !user.isImpersonating && (
-        <div className="px-3 py-2 border-t border-border">
-          <div className="px-3 text-[10px] font-mono text-muted-foreground tracking-widest mb-1.5">ADMINISTRATION</div>
-          <Link href="/license-admin"
-            className={cn(
-              "group flex items-center gap-3 px-3 py-2 text-sm font-medium transition-colors border-l-2",
-              location === "/license-admin"
-                ? "bg-sidebar-accent text-sidebar-accent-foreground border-primary"
-                : "text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-foreground border-transparent"
-            )}>
-            <Key className={cn("h-4 w-4 shrink-0", location === "/license-admin" ? "text-primary" : "text-muted-foreground group-hover:text-foreground")} />
-            <span className="flex-1">License Admin</span>
-          </Link>
-        </div>
-      )}
 
       {/* AI Copilot shortcut */}
       <div className="px-3 py-2 border-t border-border">

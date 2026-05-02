@@ -1,20 +1,21 @@
 import { Link, useLocation } from "wouter";
 import {
   LayoutDashboard, Building2, Users, LogOut, ShieldCheck,
-  ChevronDown, ScrollText, Tag, Megaphone, BarChart3,
+  ChevronDown, ScrollText, Tag, Megaphone, BarChart3, Key,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
 import { useState, type ReactNode } from "react";
 
 const nav = [
-  { name: "Dashboard",      href: "/admin",               icon: LayoutDashboard },
-  { name: "Tenants",        href: "/admin/tenants",        icon: Building2 },
-  { name: "Users",          href: "/admin/users",          icon: Users },
-  { name: "Analytics",      href: "/admin/analytics",      icon: BarChart3 },
-  { name: "Vouchers",       href: "/admin/vouchers",       icon: Tag },
-  { name: "Announcements",  href: "/admin/announcements",  icon: Megaphone },
-  { name: "Audit Log",      href: "/admin/audit",          icon: ScrollText },
+  { name: "Dashboard",      href: "/admin",                    icon: LayoutDashboard },
+  { name: "Tenants",        href: "/admin/tenants",            icon: Building2 },
+  { name: "Users",          href: "/admin/users",              icon: Users },
+  { name: "Analytics",      href: "/admin/analytics",          icon: BarChart3 },
+  { name: "Vouchers",       href: "/admin/vouchers",           icon: Tag },
+  { name: "Announcements",  href: "/admin/announcements",      icon: Megaphone },
+  { name: "License Admin",  href: "/admin/license-admin",      icon: Key },
+  { name: "Audit Log",      href: "/admin/audit",              icon: ScrollText },
 ];
 
 export default function AdminShell({ children }: { children: ReactNode }) {

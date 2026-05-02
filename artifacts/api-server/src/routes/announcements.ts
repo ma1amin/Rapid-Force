@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db, announcementsTable } from "@workspace/db";
-import { eq, desc, and, or, isNull, gte } from "drizzle-orm";
+import { eq, desc, and, or, isNull, gte, sql } from "drizzle-orm";
 import { z } from "zod/v4";
 import { requirePlatformAdmin } from "../middleware/requirePlatformAdmin";
 
@@ -25,6 +25,17 @@ router.get("/admin/announcements", requirePlatformAdmin, async (req, res) => {
   try {
     const items = await db.select().from(announcementsTable).orderBy(desc(announcementsTable.createdAt));
     res.json(items);
+  } catch (err) { req.log.error(err); res.status(500).json({ error: "Internal server error" }); }
+});
+
+router.get("/admin/announcements/stats", requirePlatformAdmin, async (req, res) => {
+  try {
+    const rows = await db.select().from(announcementsTable);
+    const total = rows.filter(r => !r.deletedAt).length;
+    const deleted = rows.filter(r => r.deletedAt).length;
+    const now = new Date();
+    const live = rows.filter(r => !r.deletedAt && r.isActive && (!r.expiresAt || r.expiresAt > now)).length;
+    res.json({ total, deleted, live });
   } catch (err) { req.log.error(err); res.status(500).json({ error: "Internal server error" }); }
 });
 
@@ -64,6 +75,19 @@ router.delete("/admin/announcements/:id", requirePlatformAdmin, async (req, res)
   const id = parseInt(req.params.id);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
   try {
+    const [updated] = await db.update(announcementsTable)
+      .set({ deletedAt: new Date(), isActive: false })
+      .where(and(eq(announcementsTable.id, id), isNull(announcementsTable.deletedAt)))
+      .returning();
+    if (!updated) { res.status(404).json({ error: "Not found or already deleted" }); return; }
+    res.json({ ok: true });
+  } catch (err) { req.log.error(err); res.status(500).json({ error: "Internal server error" }); }
+});
+
+router.delete("/admin/announcements/:id/permanent", requirePlatformAdmin, async (req, res) => {
+  const id = parseInt(req.params.id);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+  try {
     await db.delete(announcementsTable).where(eq(announcementsTable.id, id));
     res.json({ ok: true });
   } catch (err) { req.log.error(err); res.status(500).json({ error: "Internal server error" }); }
@@ -77,6 +101,7 @@ router.get("/announcements/active", async (req, res) => {
       .where(
         and(
           eq(announcementsTable.isActive, true),
+          isNull(announcementsTable.deletedAt),
           or(isNull(announcementsTable.expiresAt), gte(announcementsTable.expiresAt, now))
         )
       )

@@ -8,6 +8,7 @@ export const announcementsTable = pgTable("announcements", {
   isActive: boolean("is_active").notNull().default(true),
   expiresAt: timestamp("expires_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
+  deletedAt: timestamp("deleted_at"),
 });
 
 export type Announcement = typeof announcementsTable.$inferSelect;

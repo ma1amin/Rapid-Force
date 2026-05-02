@@ -74,6 +74,9 @@ function Router() {
       <Route path="/admin/announcements">
         <AdminProtectedRoute><AdminShell><AdminAnnouncements /></AdminShell></AdminProtectedRoute>
       </Route>
+      <Route path="/admin/license-admin">
+        <AdminProtectedRoute><AdminShell><LicenseAdmin /></AdminShell></AdminProtectedRoute>
+      </Route>
       <Route path="/admin/audit">
         <AdminProtectedRoute><AdminShell><AdminAuditLog /></AdminShell></AdminProtectedRoute>
       </Route>
@@ -97,7 +100,6 @@ function Router() {
                 <Route path="/activity"><ModuleGate moduleKey="event_log"><Activity /></ModuleGate></Route>
                 <Route path="/adversarial"><ModuleGate moduleKey="adversarial_sim"><AdversarialSim /></ModuleGate></Route>
                 <Route path="/hunting"><ModuleGate moduleKey="threat_hunting"><ThreatHunting /></ModuleGate></Route>
-                <Route path="/license-admin"><ModuleGate moduleKey="license_admin"><LicenseAdmin /></ModuleGate></Route>
                 <Route component={NotFound} />
               </Switch>
             </Shell>
