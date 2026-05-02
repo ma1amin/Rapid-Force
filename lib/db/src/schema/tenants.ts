@@ -16,6 +16,7 @@ export const tenantsTable = pgTable("tenants", {
   tier: subscriptionTierEnum("tier").notNull().default("trial"),
   licenseKey: text("license_key").notNull().unique(),
   isActive: boolean("is_active").notNull().default(true),
+  trialEndsAt: timestamp("trial_ends_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });

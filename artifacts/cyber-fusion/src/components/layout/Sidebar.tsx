@@ -1,21 +1,7 @@
 import { Link, useLocation } from "wouter";
 import {
-  TerminalSquare,
-  Cpu,
-  Zap,
-  Target,
-  ShieldAlert,
-  ActivitySquare,
-  FileCode2,
-  Siren,
-  Bot,
-  Crosshair,
-  Search,
-  Key,
-  Lock,
-  LogOut,
-  ChevronDown,
-  ShieldCheck,
+  TerminalSquare, Cpu, Zap, Target, ShieldAlert, ActivitySquare,
+  FileCode2, Siren, Bot, Crosshair, Search, Key, Lock, LogOut, ChevronDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useLicenses, type ModuleKey } from "@/hooks/useLicenses";
@@ -93,9 +79,7 @@ export default function Sidebar({ onCopilotOpen, copilotOpen }: Props) {
           const enabled = isEnabled(item.moduleKey);
           const isActive = location === item.href || (item.href !== "/" && location.startsWith(item.href));
           return (
-            <Link
-              key={item.name}
-              href={item.href}
+            <Link key={item.name} href={item.href}
               className={cn(
                 "group flex items-center gap-3 px-3 py-2 text-sm font-medium transition-colors border-l-2",
                 isActive
@@ -103,14 +87,9 @@ export default function Sidebar({ onCopilotOpen, copilotOpen }: Props) {
                   : enabled
                     ? "text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-foreground border-transparent"
                     : "text-muted-foreground/40 border-transparent cursor-pointer hover:bg-sidebar-accent/30"
-              )}
-            >
-              <item.icon
-                className={cn(
-                  "h-4 w-4 shrink-0",
-                  isActive ? "text-primary" : enabled ? "text-muted-foreground group-hover:text-foreground" : "text-muted-foreground/30"
-                )}
-              />
+              )}>
+              <item.icon className={cn("h-4 w-4 shrink-0",
+                isActive ? "text-primary" : enabled ? "text-muted-foreground group-hover:text-foreground" : "text-muted-foreground/30")} />
               <span className="flex-1">{item.name}</span>
               {!enabled && <Lock className="h-3 w-3 text-muted-foreground/40 shrink-0" />}
             </Link>
@@ -118,19 +97,17 @@ export default function Sidebar({ onCopilotOpen, copilotOpen }: Props) {
         })}
       </nav>
 
-      {/* Administration section — admin role only */}
-      {user?.role === "admin" && (
+      {/* Administration section — admin role only, hidden during impersonation */}
+      {user?.role === "admin" && !user.isImpersonating && (
         <div className="px-3 py-2 border-t border-border">
           <div className="px-3 text-[10px] font-mono text-muted-foreground tracking-widest mb-1.5">ADMINISTRATION</div>
-          <Link
-            href="/license-admin"
+          <Link href="/license-admin"
             className={cn(
               "group flex items-center gap-3 px-3 py-2 text-sm font-medium transition-colors border-l-2",
               location === "/license-admin"
                 ? "bg-sidebar-accent text-sidebar-accent-foreground border-primary"
                 : "text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-foreground border-transparent"
-            )}
-          >
+            )}>
             <Key className={cn("h-4 w-4 shrink-0", location === "/license-admin" ? "text-primary" : "text-muted-foreground group-hover:text-foreground")} />
             <span className="flex-1">License Admin</span>
           </Link>
@@ -139,15 +116,13 @@ export default function Sidebar({ onCopilotOpen, copilotOpen }: Props) {
 
       {/* AI Copilot shortcut */}
       <div className="px-3 py-2 border-t border-border">
-        <button
-          onClick={onCopilotOpen}
+        <button onClick={onCopilotOpen}
           className={cn(
             "w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium transition-colors border border-dashed",
             copilotOpen
               ? "border-primary text-primary bg-primary/10"
               : "border-primary/30 text-primary/70 hover:border-primary hover:text-primary hover:bg-primary/5"
-          )}
-        >
+          )}>
           <Bot className="h-4 w-4 shrink-0" />
           <span>AI Copilot</span>
           <span className="ml-auto text-xs font-mono text-muted-foreground">⌘/</span>
@@ -156,10 +131,8 @@ export default function Sidebar({ onCopilotOpen, copilotOpen }: Props) {
 
       {/* User section */}
       <div className="border-t border-border">
-        <button
-          onClick={() => setUserMenuOpen(v => !v)}
-          className="w-full flex items-center gap-3 px-4 py-3 hover:bg-sidebar-accent/40 transition-colors"
-        >
+        <button onClick={() => setUserMenuOpen(v => !v)}
+          className="w-full flex items-center gap-3 px-4 py-3 hover:bg-sidebar-accent/40 transition-colors">
           <div className="flex h-7 w-7 items-center justify-center bg-primary/10 border border-primary/30 shrink-0 text-xs font-bold text-primary">
             {user?.displayName?.[0]?.toUpperCase() ?? "?"}
           </div>
@@ -173,10 +146,8 @@ export default function Sidebar({ onCopilotOpen, copilotOpen }: Props) {
         {userMenuOpen && (
           <div className="border-t border-border bg-sidebar">
             <div className="px-4 py-2 text-xs font-mono text-muted-foreground/60 truncate">{user?.email}</div>
-            <button
-              onClick={logout}
-              className="w-full flex items-center gap-2 px-4 py-2 text-xs font-mono text-destructive hover:bg-destructive/10 transition-colors"
-            >
+            <button onClick={logout}
+              className="w-full flex items-center gap-2 px-4 py-2 text-xs font-mono text-destructive hover:bg-destructive/10 transition-colors">
               <LogOut className="h-3.5 w-3.5" />SIGN OUT
             </button>
           </div>
@@ -185,8 +156,7 @@ export default function Sidebar({ onCopilotOpen, copilotOpen }: Props) {
         <div className="flex items-center justify-between px-4 py-2 border-t border-border text-xs font-mono">
           <span className="text-muted-foreground">SYS_STATUS</span>
           <span className="text-primary flex items-center gap-1">
-            <span className="h-2 w-2 rounded-full bg-primary animate-pulse" />
-            ONLINE
+            <span className="h-2 w-2 rounded-full bg-primary animate-pulse" />ONLINE
           </span>
         </div>
       </div>

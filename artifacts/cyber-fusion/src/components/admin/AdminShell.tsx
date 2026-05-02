@@ -1,11 +1,7 @@
 import { Link, useLocation } from "wouter";
 import {
-  LayoutDashboard,
-  Building2,
-  Users,
-  LogOut,
-  ShieldCheck,
-  ChevronDown,
+  LayoutDashboard, Building2, Users, LogOut, ShieldCheck,
+  ChevronDown, ScrollText,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
@@ -15,6 +11,7 @@ const nav = [
   { name: "Dashboard",  href: "/admin",          icon: LayoutDashboard },
   { name: "Tenants",    href: "/admin/tenants",   icon: Building2 },
   { name: "Users",      href: "/admin/users",     icon: Users },
+  { name: "Audit Log",  href: "/admin/audit",     icon: ScrollText },
 ];
 
 export default function AdminShell({ children }: { children: ReactNode }) {
@@ -56,22 +53,15 @@ export default function AdminShell({ children }: { children: ReactNode }) {
                 ? location === "/admin"
                 : location.startsWith(item.href);
             return (
-              <Link
-                key={item.name}
-                href={item.href}
+              <Link key={item.name} href={item.href}
                 className={cn(
                   "group flex items-center gap-3 px-3 py-2 text-sm font-medium transition-colors border-l-2",
                   isActive
                     ? "bg-orange-500/10 text-orange-300 border-orange-400"
                     : "text-sidebar-foreground hover:bg-orange-500/5 hover:text-orange-200 border-transparent"
-                )}
-              >
-                <item.icon
-                  className={cn(
-                    "h-4 w-4 shrink-0",
-                    isActive ? "text-orange-400" : "text-muted-foreground group-hover:text-orange-300"
-                  )}
-                />
+                )}>
+                <item.icon className={cn("h-4 w-4 shrink-0",
+                  isActive ? "text-orange-400" : "text-muted-foreground group-hover:text-orange-300")} />
                 <span>{item.name}</span>
               </Link>
             );
@@ -80,10 +70,8 @@ export default function AdminShell({ children }: { children: ReactNode }) {
 
         {/* Admin user section */}
         <div className="border-t border-border">
-          <button
-            onClick={() => setMenuOpen((v) => !v)}
-            className="w-full flex items-center gap-3 px-4 py-3 hover:bg-sidebar-accent/40 transition-colors"
-          >
+          <button onClick={() => setMenuOpen((v) => !v)}
+            className="w-full flex items-center gap-3 px-4 py-3 hover:bg-sidebar-accent/40 transition-colors">
             <div className="flex h-7 w-7 items-center justify-center bg-orange-500/20 border border-orange-500/30 shrink-0 text-xs font-bold text-orange-300">
               {admin?.email?.[0]?.toUpperCase() ?? "A"}
             </div>
@@ -96,12 +84,9 @@ export default function AdminShell({ children }: { children: ReactNode }) {
 
           {menuOpen && (
             <div className="border-t border-border bg-sidebar">
-              <button
-                onClick={logout}
-                className="w-full flex items-center gap-2 px-4 py-2 text-xs font-mono text-destructive hover:bg-destructive/10 transition-colors"
-              >
-                <LogOut className="h-3.5 w-3.5" />
-                SIGN OUT
+              <button onClick={logout}
+                className="w-full flex items-center gap-2 px-4 py-2 text-xs font-mono text-destructive hover:bg-destructive/10 transition-colors">
+                <LogOut className="h-3.5 w-3.5" />SIGN OUT
               </button>
             </div>
           )}
@@ -109,17 +94,14 @@ export default function AdminShell({ children }: { children: ReactNode }) {
           <div className="flex items-center justify-between px-4 py-2 border-t border-border text-xs font-mono">
             <span className="text-muted-foreground">SYS_STATUS</span>
             <span className="text-orange-400 flex items-center gap-1">
-              <span className="h-2 w-2 rounded-full bg-orange-400 animate-pulse" />
-              ONLINE
+              <span className="h-2 w-2 rounded-full bg-orange-400 animate-pulse" />ONLINE
             </span>
           </div>
         </div>
       </div>
 
       {/* Main content */}
-      <main className="flex-1 overflow-y-auto p-6">
-        {children}
-      </main>
+      <main className="flex-1 overflow-y-auto p-6">{children}</main>
     </div>
   );
 }

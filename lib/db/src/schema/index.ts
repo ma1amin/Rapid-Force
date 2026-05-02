@@ -7,3 +7,4 @@ export * from "./detections";
 export * from "./incidents";
 export * from "./tenants";
 export * from "./users";
+export * from "./audit";

@@ -8,14 +8,9 @@ export interface AuthUser {
   tenantId: number;
   tenantName: string;
   tenantTier: "trial" | "starter" | "professional" | "enterprise";
-}
-
-interface AuthContextValue {
-  user: AuthUser | null;
-  loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  register: (data: RegisterData) => Promise<void>;
-  logout: () => Promise<void>;
+  isImpersonating?: boolean;
+  impersonatorEmail?: string;
+  impersonationExpiresAt?: number;
 }
 
 interface RegisterData {
@@ -25,6 +20,15 @@ interface RegisterData {
   password: string;
   tier: string;
   licenseKey?: string;
+}
+
+interface AuthContextValue {
+  user: AuthUser | null;
+  loading: boolean;
+  login: (email: string, password: string) => Promise<void>;
+  register: (data: RegisterData) => Promise<void>;
+  logout: () => Promise<void>;
+  exitImpersonation: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -54,18 +58,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = async (email: string, password: string) => {
-    const data = await apiFetch("/auth/login", {
-      method: "POST",
-      body: JSON.stringify({ email, password }),
-    });
+    const data = await apiFetch("/auth/login", { method: "POST", body: JSON.stringify({ email, password }) });
     setUser(data.user);
   };
 
   const register = async (data: RegisterData) => {
-    const result = await apiFetch("/auth/register", {
-      method: "POST",
-      body: JSON.stringify(data),
-    });
+    const result = await apiFetch("/auth/register", { method: "POST", body: JSON.stringify(data) });
     setUser(result.user);
   };
 
@@ -74,8 +72,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   };
 
+  const exitImpersonation = async () => {
+    await apiFetch("/admin/impersonate/exit", { method: "POST" }).catch(() => {});
+    setUser(null);
+    window.location.href = import.meta.env.BASE_URL.replace(/\/$/, "") + "/admin";
+  };
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, register, logout, exitImpersonation }}>
       {children}
     </AuthContext.Provider>
   );

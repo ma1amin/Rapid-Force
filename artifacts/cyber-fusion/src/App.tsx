@@ -29,15 +29,11 @@ import AdminDashboard from "@/pages/admin/AdminDashboard";
 import AdminTenants from "@/pages/admin/AdminTenants";
 import AdminTenantDetail from "@/pages/admin/AdminTenantDetail";
 import AdminUsers from "@/pages/admin/AdminUsers";
+import AdminAuditLog from "@/pages/admin/AdminAuditLog";
 import { type ReactNode, useEffect } from "react";
 
 const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      retry: 1,
-      refetchOnWindowFocus: false,
-    },
-  },
+  defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false } },
 });
 
 function AdminProtectedRoute({ children }: { children: ReactNode }) {
@@ -65,11 +61,9 @@ function AdminApp() {
       <Switch>
         <Route path="/admin/login" component={AdminLogin} />
         <Route path="/admin/tenants/:id">
-          {(params) => (
+          {() => (
             <AdminProtectedRoute>
-              <AdminShell>
-                <AdminTenantDetail />
-              </AdminShell>
+              <AdminShell><AdminTenantDetail /></AdminShell>
             </AdminProtectedRoute>
           )}
         </Route>
@@ -81,6 +75,11 @@ function AdminApp() {
         <Route path="/admin/users">
           <AdminProtectedRoute>
             <AdminShell><AdminUsers /></AdminShell>
+          </AdminProtectedRoute>
+        </Route>
+        <Route path="/admin/audit">
+          <AdminProtectedRoute>
+            <AdminShell><AdminAuditLog /></AdminShell>
           </AdminProtectedRoute>
         </Route>
         <Route path="/admin">
@@ -147,9 +146,7 @@ function Router() {
       <Route path="/register" component={Register} />
       <Route path="/admin/:rest*" component={AdminApp} />
       <Route path="/admin" component={AdminApp} />
-      <Route>
-        <AppRoutes />
-      </Route>
+      <Route><AppRoutes /></Route>
     </Switch>
   );
 }

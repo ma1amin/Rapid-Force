@@ -4,8 +4,10 @@ import Footer from "./Footer";
 import GlobalSearch from "@/components/search/GlobalSearch";
 import CopilotPanel from "@/components/copilot/CopilotPanel";
 import CopilotFAB from "@/components/copilot/CopilotFAB";
+import ImpersonationBanner from "./ImpersonationBanner";
 import { Search, Sun, Moon } from "lucide-react";
 import { useTheme } from "@/hooks/useTheme";
+import { useAuth } from "@/hooks/useAuth";
 import { useEffect } from "react";
 import { useListThreats } from "@workspace/api-client-react";
 import { cn } from "@/lib/utils";
@@ -14,6 +16,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
   const [searchOpen, setSearchOpen] = useState(false);
   const [copilotOpen, setCopilotOpen] = useState(false);
   const { theme, toggle } = useTheme();
+  const { user, exitImpersonation } = useAuth();
 
   const { data: threats } = useListThreats();
   const activeThreats = threats?.filter((t) => t.status === "active").length ?? 0;
@@ -39,6 +42,11 @@ export default function Shell({ children }: { children: React.ReactNode }) {
       <Sidebar onCopilotOpen={() => setCopilotOpen((v) => !v)} copilotOpen={copilotOpen} />
 
       <div className="flex flex-1 flex-col overflow-hidden">
+        {/* Impersonation banner — shown above everything when active */}
+        {user?.isImpersonating && (
+          <ImpersonationBanner user={user} onExit={exitImpersonation} />
+        )}
+
         {/* Top header bar */}
         <div className="flex items-center justify-between border-b border-border bg-sidebar px-6 py-2 shrink-0">
           <div className="text-xs font-mono text-muted-foreground tracking-widest">
@@ -54,7 +62,6 @@ export default function Shell({ children }: { children: React.ReactNode }) {
               <span className="ml-1 text-muted-foreground/50">⌘K</span>
             </button>
 
-            {/* Theme toggle */}
             <button
               onClick={toggle}
               title={theme === "dark" ? "Switch to Light Mode" : "Switch to Dark Mode"}
@@ -86,7 +93,6 @@ export default function Shell({ children }: { children: React.ReactNode }) {
             </div>
           </main>
 
-          {/* Copilot panel — slides in on the right */}
           <div
             className={cn(
               "border-l border-border bg-card flex-shrink-0 overflow-hidden transition-all duration-300",
@@ -98,7 +104,6 @@ export default function Shell({ children }: { children: React.ReactNode }) {
         </div>
       </div>
 
-      {/* Animated floating copilot button */}
       <CopilotFAB
         isOpen={copilotOpen}
         onToggle={() => setCopilotOpen((v) => !v)}
