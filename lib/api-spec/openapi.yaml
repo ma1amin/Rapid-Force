@@ -1,22 +1,30 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Rapid Force Cyber Fusion AI Factory API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: agents
+    description: AI agent management
+  - name: sprints
+    description: Sprint planning and execution
+  - name: missions
+    description: Mission tracking
+  - name: threats
+    description: Threat intelligence
+  - name: activity
+    description: Activity feed and event log
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +32,307 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /agents:
+    get:
+      operationId: listAgents
+      tags: [agents]
+      summary: List all AI agents
+      responses:
+        "200":
+          description: List of agents
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Agent"
+    post:
+      operationId: createAgent
+      tags: [agents]
+      summary: Register a new agent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAgentBody"
+      responses:
+        "201":
+          description: Agent created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Agent"
+
+  /agents/{id}:
+    get:
+      operationId: getAgent
+      tags: [agents]
+      summary: Get agent by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Agent details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Agent"
+    patch:
+      operationId: updateAgent
+      tags: [agents]
+      summary: Update agent status
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateAgentBody"
+      responses:
+        "200":
+          description: Updated agent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Agent"
+
+  /agents/summary:
+    get:
+      operationId: getAgentsSummary
+      tags: [agents]
+      summary: Get agent fleet summary stats
+      responses:
+        "200":
+          description: Fleet summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentsSummary"
+
+  /sprints:
+    get:
+      operationId: listSprints
+      tags: [sprints]
+      summary: List all sprints
+      responses:
+        "200":
+          description: List of sprints
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Sprint"
+    post:
+      operationId: createSprint
+      tags: [sprints]
+      summary: Create a new sprint
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSprintBody"
+      responses:
+        "201":
+          description: Sprint created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Sprint"
+
+  /sprints/{id}:
+    get:
+      operationId: getSprint
+      tags: [sprints]
+      summary: Get sprint by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Sprint details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Sprint"
+    patch:
+      operationId: updateSprint
+      tags: [sprints]
+      summary: Update sprint
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateSprintBody"
+      responses:
+        "200":
+          description: Updated sprint
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Sprint"
+
+  /missions:
+    get:
+      operationId: listMissions
+      tags: [missions]
+      summary: List all missions
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [active, pending, complete, failed]
+        - name: sprintId
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of missions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Mission"
+    post:
+      operationId: createMission
+      tags: [missions]
+      summary: Create a mission task
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateMissionBody"
+      responses:
+        "201":
+          description: Mission created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Mission"
+
+  /missions/{id}:
+    patch:
+      operationId: updateMission
+      tags: [missions]
+      summary: Update mission status
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateMissionBody"
+      responses:
+        "200":
+          description: Updated mission
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Mission"
+
+  /threats:
+    get:
+      operationId: listThreats
+      tags: [threats]
+      summary: List threat intelligence entries
+      parameters:
+        - name: severity
+          in: query
+          schema:
+            type: string
+            enum: [critical, high, medium, low]
+      responses:
+        "200":
+          description: List of threats
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Threat"
+    post:
+      operationId: createThreat
+      tags: [threats]
+      summary: Log a new threat
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateThreatBody"
+      responses:
+        "201":
+          description: Threat logged
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Threat"
+
+  /threats/summary:
+    get:
+      operationId: getThreatsSummary
+      tags: [threats]
+      summary: Threat intelligence summary by severity
+      responses:
+        "200":
+          description: Threat summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ThreatsSummary"
+
+  /activity:
+    get:
+      operationId: listActivity
+      tags: [activity]
+      summary: Get recent activity feed
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: Activity events
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ActivityEvent"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +343,326 @@ components:
       required:
         - status
 
+    Agent:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        role:
+          type: string
+          enum: [architect, cto, product_manager, security_lead, senior_engineer, devops, ui_ux, red_team, documentation]
+        module:
+          type: string
+        status:
+          type: string
+          enum: [active, idle, standby, offline]
+        missionsCompleted:
+          type: integer
+        tasksActive:
+          type: integer
+        lastHeartbeat:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - name
+        - role
+        - module
+        - status
+        - missionsCompleted
+        - tasksActive
+        - lastHeartbeat
+        - createdAt
+
+    CreateAgentBody:
+      type: object
+      properties:
+        name:
+          type: string
+        role:
+          type: string
+          enum: [architect, cto, product_manager, security_lead, senior_engineer, devops, ui_ux, red_team, documentation]
+        module:
+          type: string
+      required:
+        - name
+        - role
+        - module
+
+    UpdateAgentBody:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [active, idle, standby, offline]
+        tasksActive:
+          type: integer
+
+    AgentsSummary:
+      type: object
+      properties:
+        total:
+          type: integer
+        active:
+          type: integer
+        idle:
+          type: integer
+        standby:
+          type: integer
+        offline:
+          type: integer
+        totalMissionsCompleted:
+          type: integer
+      required:
+        - total
+        - active
+        - idle
+        - standby
+        - offline
+        - totalMissionsCompleted
+
+    Sprint:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        objective:
+          type: string
+        status:
+          type: string
+          enum: [planning, active, complete, paused]
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        progress:
+          type: number
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - name
+        - objective
+        - status
+        - startDate
+        - endDate
+        - progress
+        - createdAt
+
+    CreateSprintBody:
+      type: object
+      properties:
+        name:
+          type: string
+        objective:
+          type: string
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+      required:
+        - name
+        - objective
+        - startDate
+        - endDate
+
+    UpdateSprintBody:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [planning, active, complete, paused]
+        progress:
+          type: number
+
+    Mission:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+        status:
+          type: string
+          enum: [active, pending, complete, failed]
+        priority:
+          type: string
+          enum: [critical, high, medium, low]
+        assignedAgentId:
+          type: integer
+          nullable: true
+        sprintId:
+          type: integer
+          nullable: true
+        category:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - title
+        - description
+        - status
+        - priority
+        - category
+        - createdAt
+        - updatedAt
+
+    CreateMissionBody:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        priority:
+          type: string
+          enum: [critical, high, medium, low]
+        assignedAgentId:
+          type: integer
+        sprintId:
+          type: integer
+        category:
+          type: string
+      required:
+        - title
+        - description
+        - priority
+        - category
+
+    UpdateMissionBody:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [active, pending, complete, failed]
+        assignedAgentId:
+          type: integer
+
+    Threat:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+        severity:
+          type: string
+          enum: [critical, high, medium, low]
+        category:
+          type: string
+        source:
+          type: string
+        status:
+          type: string
+          enum: [active, mitigated, monitoring, closed]
+        detectedAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - title
+        - description
+        - severity
+        - category
+        - source
+        - status
+        - detectedAt
+        - createdAt
+
+    CreateThreatBody:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        severity:
+          type: string
+          enum: [critical, high, medium, low]
+        category:
+          type: string
+        source:
+          type: string
+      required:
+        - title
+        - description
+        - severity
+        - category
+        - source
+
+    ThreatsSummary:
+      type: object
+      properties:
+        total:
+          type: integer
+        critical:
+          type: integer
+        high:
+          type: integer
+        medium:
+          type: integer
+        low:
+          type: integer
+        mitigated:
+          type: integer
+        active:
+          type: integer
+      required:
+        - total
+        - critical
+        - high
+        - medium
+        - low
+        - mitigated
+        - active
+
+    ActivityEvent:
+      type: object
+      properties:
+        id:
+          type: integer
+        type:
+          type: string
+        message:
+          type: string
+        agentName:
+          type: string
+          nullable: true
+        entityType:
+          type: string
+          nullable: true
+        entityId:
+          type: integer
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - type
+        - message
+        - createdAt
