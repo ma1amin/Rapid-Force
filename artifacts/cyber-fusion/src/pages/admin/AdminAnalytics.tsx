@@ -69,7 +69,7 @@ export default function AdminAnalytics() {
   const fetchData = async () => {
     try {
       const r = await fetch(`${BASE}/api/admin/analytics`, { credentials: "include" });
-      setData(await r.json());
+      if (r.ok) setData(await r.json());
     } finally { setLoading(false); setRefreshing(false); }
   };
 
