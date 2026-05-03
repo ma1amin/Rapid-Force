@@ -19,6 +19,7 @@ interface Plugin {
   author: string; version: string; category: string; icon: string;
   capabilities: string[]; configSchema: ConfigSchema; isBuiltIn: boolean;
   isInstalled: boolean; isEnabled: boolean; installCount: number; rating: number; reviewCount: number;
+  savedConfig?: Record<string, string>;
 }
 
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -75,7 +76,7 @@ export default function PluginMarketplace() {
 
   const selectPlugin = (plugin: Plugin) => {
     setSelected(plugin);
-    setConfigValues(Object.fromEntries((plugin.configSchema?.fields ?? []).map(field => [field.key, ""])) as Record<string, string>);
+    setConfigValues(plugin.savedConfig ?? Object.fromEntries((plugin.configSchema?.fields ?? []).map(field => [field.key, ""])) as Record<string, string>);
     setConfigSaved(null);
     setShowPasswords({});
   };
@@ -121,6 +122,8 @@ export default function PluginMarketplace() {
         method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ config: configValues }),
       });
+      setSelected(s => s ? { ...s, savedConfig: configValues } : s);
+      setPlugins(ps => ps.map(p => p.slug === selected.slug ? { ...p, savedConfig: configValues } : p));
       setConfigSaved(selected.slug);
       toast({ title: "Configuration saved", description: `${selected.name} settings updated.` });
     } catch { toast({ title: "Save failed", variant: "destructive" }); }
@@ -296,7 +299,10 @@ export default function PluginMarketplace() {
                   {selected.isInstalled && <Badge variant="outline" className="text-xs text-emerald-400 border-emerald-500/40">INSTALLED</Badge>}
                 </div>
 
-                <div className="flex gap-2">
+                <div className="flex gap-2 flex-wrap">
+                  <Button size="sm" variant="outline" onClick={() => setSelected(null)} className="font-mono text-xs">
+                    CLOSE
+                  </Button>
                   {selected.isInstalled ? (
                     <>
                       <Button size="sm" variant="outline" onClick={() => toggle(selected.slug, !selected.isEnabled)}
