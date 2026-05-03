@@ -71,9 +71,10 @@ export default function Dashboard() {
   const criticalMissions = missions?.filter((m) => m.priority === "critical" && m.status !== "complete") ?? [];
 
   const now = new Date();
-  const datePart = now.toISOString().substring(0, 10);
-  const timePart = now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true, timeZone: "UTC" });
-  const timeStr = `${datePart} ${timePart} UTC`;
+  const datePart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  const timePart = now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true });
+  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const timeStr = `${datePart} ${timePart} (${tz})`;
 
   const missionCounts = {
     active: missions?.filter((m) => m.status === "active").length ?? 0,

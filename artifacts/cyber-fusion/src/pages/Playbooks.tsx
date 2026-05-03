@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { BookOpen, Play, Pause, Clock, Plus, Search, ChevronRight, Zap, Bot, Eye, X, Lightbulb, ChevronDown, Square } from "lucide-react";
+import { BookOpen, Play, Pause, Clock, Plus, Search, ChevronRight, Zap, Bot, Eye, X, Lightbulb, ChevronDown, Square, FilterX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -29,6 +29,7 @@ interface Playbook {
 }
 
 const INITIAL_PLAYBOOKS: Playbook[] = [
+  // Incident Response
   {
     id: "pb-001", name: "Ransomware Incident Response",
     description: "Automated triage, isolation, and remediation workflow for ransomware detections",
@@ -36,22 +37,17 @@ const INITIAL_PLAYBOOKS: Playbook[] = [
     steps: 12, completedRuns: 47, avgRuntime: "4m 23s", status: "active", severity: "critical", lastRun: "2 hours ago", automationRate: 94,
   },
   {
-    id: "pb-002", name: "Phishing Email Triage",
-    description: "Extract IOCs from reported phishing emails, query threat intel, and auto-quarantine",
-    trigger: "Email Report / Alert: Suspicious Email", category: "Threat Intel",
-    steps: 8, completedRuns: 312, avgRuntime: "1m 12s", status: "active", severity: "high", lastRun: "15 min ago", automationRate: 88,
-  },
-  {
-    id: "pb-003", name: "Brute Force Account Lockout",
-    description: "Detect brute force patterns, temporarily lock accounts, alert user and admin",
-    trigger: "Detection: Multiple Failed Auth", category: "Identity",
-    steps: 6, completedRuns: 189, avgRuntime: "45s", status: "active", severity: "medium", lastRun: "1 hour ago", automationRate: 100,
-  },
-  {
     id: "pb-004", name: "Lateral Movement Detection",
     description: "Map lateral movement paths, isolate compromised hosts, preserve evidence",
     trigger: "Detection: Lateral Movement / SMB Anomaly", category: "Incident Response",
     steps: 15, completedRuns: 23, avgRuntime: "8m 45s", status: "active", severity: "critical", lastRun: "3 days ago", automationRate: 76,
+  },
+  // Threat Intel
+  {
+    id: "pb-002", name: "Phishing Email Triage",
+    description: "Extract IOCs from reported phishing emails, query threat intel, and auto-quarantine",
+    trigger: "Email Report / Alert: Suspicious Email", category: "Threat Intel",
+    steps: 8, completedRuns: 312, avgRuntime: "1m 12s", status: "active", severity: "high", lastRun: "15 min ago", automationRate: 88,
   },
   {
     id: "pb-005", name: "Threat Intel Enrichment",
@@ -59,29 +55,76 @@ const INITIAL_PLAYBOOKS: Playbook[] = [
     trigger: "New IOC Ingested", category: "Threat Intel",
     steps: 5, completedRuns: 2847, avgRuntime: "12s", status: "active", severity: "info", lastRun: "5 min ago", automationRate: 100,
   },
+  // Identity
+  {
+    id: "pb-003", name: "Brute Force Account Lockout",
+    description: "Detect brute force patterns, temporarily lock accounts, alert user and admin",
+    trigger: "Detection: Multiple Failed Auth", category: "Identity",
+    steps: 6, completedRuns: 189, avgRuntime: "45s", status: "active", severity: "medium", lastRun: "1 hour ago", automationRate: 100,
+  },
   {
     id: "pb-006", name: "Privilege Escalation Response",
     description: "Detect and respond to privilege escalation attempts with automated evidence collection",
     trigger: "Detection: Privilege Escalation", category: "Identity",
-    steps: 10, completedRuns: 34, avgRuntime: "3m 10s", status: "draft", severity: "high", lastRun: "Never", automationRate: 65,
+    steps: 10, completedRuns: 0, avgRuntime: "—", status: "draft", severity: "high", lastRun: "Never", automationRate: 65,
   },
+  // Data Loss
   {
     id: "pb-007", name: "Data Exfiltration Response",
     description: "Block data transfer, collect forensic artefacts, and notify DLP team automatically",
     trigger: "Detection: Unusual Data Transfer", category: "Data Loss",
     steps: 11, completedRuns: 8, avgRuntime: "6m 55s", status: "paused", severity: "critical", lastRun: "1 week ago", automationRate: 82,
   },
+  // Vulnerability Mgmt
+  {
+    id: "pb-008", name: "Zero-Day Vulnerability Response",
+    description: "Rapid triage and isolation for newly disclosed CVEs affecting in-scope assets",
+    trigger: "Threat Intel: CVE Advisory / Zero-Day Alert", category: "Vulnerability Mgmt",
+    steps: 9, completedRuns: 14, avgRuntime: "6m 10s", status: "active", severity: "critical", lastRun: "4 days ago", automationRate: 72,
+  },
+  {
+    id: "pb-009", name: "Emergency Patch Deployment",
+    description: "Auto-prioritise affected hosts, push patch via WSUS/Ansible, verify compliance, create ticket",
+    trigger: "Vulnerability: Critical CVSS ≥ 9.0 Detected", category: "Vulnerability Mgmt",
+    steps: 8, completedRuns: 31, avgRuntime: "12m 40s", status: "active", severity: "high", lastRun: "2 weeks ago", automationRate: 80,
+  },
+  // Cloud Security
+  {
+    id: "pb-010", name: "Cloud Misconfiguration Remediation",
+    description: "Detect and auto-remediate exposed S3 buckets, open security groups, and IAM over-permissions",
+    trigger: "CSPM Alert: Misconfiguration Detected", category: "Cloud Security",
+    steps: 7, completedRuns: 62, avgRuntime: "2m 30s", status: "active", severity: "high", lastRun: "6 hours ago", automationRate: 91,
+  },
+  {
+    id: "pb-011", name: "Container / K8s Security Incident",
+    description: "Detect container escapes, privilege escalation in pods, and malicious images with auto-eviction",
+    trigger: "Detection: Container Escape / K8s Anomaly", category: "Cloud Security",
+    steps: 13, completedRuns: 5, avgRuntime: "9m 15s", status: "paused", severity: "critical", lastRun: "3 weeks ago", automationRate: 68,
+  },
+  // Application Security
+  {
+    id: "pb-012", name: "API Abuse Detection Response",
+    description: "Rate-limit, block, and investigate abusive API clients with automatic abuse report generation",
+    trigger: "Detection: API Rate Limit / Anomalous Usage", category: "Application Security",
+    steps: 6, completedRuns: 0, avgRuntime: "—", status: "draft", severity: "medium", lastRun: "Never", automationRate: 95,
+  },
+  {
+    id: "pb-013", name: "Web Application Attack Response",
+    description: "Auto-block attacking IPs, collect request logs, trigger WAF rule update and alert AppSec team",
+    trigger: "WAF Alert: SQLi / XSS / Path Traversal Detected", category: "Application Security",
+    steps: 8, completedRuns: 44, avgRuntime: "1m 50s", status: "active", severity: "high", lastRun: "1 day ago", automationRate: 88,
+  },
 ];
 
 const TEMPLATE_SUGGESTIONS = [
-  { name: "Zero-Day Vulnerability Response", description: "Rapid triage and isolation for newly disclosed CVEs affecting in-scope assets.", trigger: "Threat Intel: CVE Advisory / Zero-Day Alert", category: "Vulnerability Mgmt", severity: "critical" as PlaybookSeverity, steps: 9, automationRate: 72 },
-  { name: "Cloud Misconfiguration Alert", description: "Detect and auto-remediate exposed S3 buckets, open security groups, and IAM over-permissions.", trigger: "CSPM Alert: Misconfiguration Detected", category: "Cloud Security", severity: "high" as PlaybookSeverity, steps: 7, automationRate: 91 },
-  { name: "Malware Quarantine & Analysis", description: "Sandbox execution, hash lookup, EDR quarantine, and automatic IOC extraction.", trigger: "Detection: Malware / Suspicious Binary", category: "Incident Response", severity: "high" as PlaybookSeverity, steps: 10, automationRate: 85 },
-  { name: "API Abuse Detection Response", description: "Rate-limit, block, and investigate abusive API clients with automatic abuse report generation.", trigger: "Detection: API Rate Limit / Anomalous Usage", category: "Application Security", severity: "medium" as PlaybookSeverity, steps: 6, automationRate: 95 },
-  { name: "Critical Asset Access Anomaly", description: "Respond to out-of-hours or geo-impossible access to crown-jewel assets and databases.", trigger: "UEBA Alert: Critical Asset Access", category: "Identity", severity: "critical" as PlaybookSeverity, steps: 8, automationRate: 78 },
-  { name: "Container / K8s Security Incident", description: "Detect container escapes, privilege escalation in pods, and malicious images with auto-eviction.", trigger: "Detection: Container Escape / K8s Anomaly", category: "Cloud Security", severity: "critical" as PlaybookSeverity, steps: 13, automationRate: 68 },
-  { name: "Emergency Patch Deployment", description: "Auto-prioritise affected hosts, push patch via WSUS/Ansible, verify compliance, and create remediation ticket.", trigger: "Vulnerability: Critical CVSS ≥ 9.0 Detected", category: "Vulnerability Mgmt", severity: "high" as PlaybookSeverity, steps: 8, automationRate: 80 },
   { name: "Credential Breach Notification", description: "Cross-reference HIBP and dark web feeds, force password reset, invalidate sessions, and notify user.", trigger: "Threat Intel: Credential Exposure Detected", category: "Identity", severity: "high" as PlaybookSeverity, steps: 7, automationRate: 93 },
+  { name: "Malware Quarantine & Analysis", description: "Sandbox execution, hash lookup, EDR quarantine, and automatic IOC extraction.", trigger: "Detection: Malware / Suspicious Binary", category: "Incident Response", severity: "high" as PlaybookSeverity, steps: 10, automationRate: 85 },
+  { name: "Critical Asset Access Anomaly", description: "Respond to out-of-hours or geo-impossible access to crown-jewel assets and databases.", trigger: "UEBA Alert: Critical Asset Access", category: "Identity", severity: "critical" as PlaybookSeverity, steps: 8, automationRate: 78 },
+  { name: "SSRF / Server-Side Request Forgery", description: "Detect and isolate SSRF exploitation attempts targeting internal metadata endpoints.", trigger: "WAF Alert: SSRF Pattern Detected", category: "Application Security", severity: "high" as PlaybookSeverity, steps: 6, automationRate: 82 },
+  { name: "Insider Threat — Data Hoarding", description: "Detect unusual bulk download of sensitive files and cross-reference with UEBA risk score.", trigger: "DLP Alert: Bulk File Access Anomaly", category: "Data Loss", severity: "high" as PlaybookSeverity, steps: 9, automationRate: 70 },
+  { name: "Serverless / Lambda Abuse", description: "Detect anomalous Lambda invocations, exfil via function output, and auto-disable offending functions.", trigger: "CloudTrail: Anomalous Lambda Execution", category: "Cloud Security", severity: "medium" as PlaybookSeverity, steps: 7, automationRate: 84 },
+  { name: "SLA Breach Vulnerability Remediation", description: "Track overdue critical/high CVEs, auto-escalate to asset owner and create Jira ticket.", trigger: "Vulnerability: SLA Breach Threshold Reached", category: "Vulnerability Mgmt", severity: "medium" as PlaybookSeverity, steps: 5, automationRate: 90 },
+  { name: "Third-Party Supply Chain Alert", description: "Correlate vendor breach intelligence with your asset inventory and trigger quarantine for affected components.", trigger: "Threat Intel: Vendor / Supply Chain Breach", category: "Threat Intel", severity: "critical" as PlaybookSeverity, steps: 11, automationRate: 65 },
 ];
 
 const CATEGORIES = ["All", "Incident Response", "Threat Intel", "Identity", "Data Loss", "Vulnerability Mgmt", "Cloud Security", "Application Security"];
@@ -104,12 +147,17 @@ const statusIcons: Record<string, React.ReactNode> = {
   draft:  <Clock className="w-3 h-3" />,
 };
 
-const LS_KEY = "rf-playbooks-state";
+const LS_KEY     = "rf-playbooks-state";
+const LS_VERSION = "v3"; // bump whenever INITIAL_PLAYBOOKS shape changes
 
 function loadPlaybooks(): Playbook[] {
   try {
     const raw = localStorage.getItem(LS_KEY);
-    return raw ? JSON.parse(raw) : INITIAL_PLAYBOOKS;
+    if (!raw) return INITIAL_PLAYBOOKS;
+    const parsed = JSON.parse(raw);
+    // Version guard — stale data gets replaced by fresh INITIAL_PLAYBOOKS
+    if (parsed.__version !== LS_VERSION) return INITIAL_PLAYBOOKS;
+    return parsed.data as Playbook[];
   } catch {
     return INITIAL_PLAYBOOKS;
   }
@@ -117,7 +165,7 @@ function loadPlaybooks(): Playbook[] {
 
 function savePlaybooks(pbs: Playbook[]) {
   try {
-    localStorage.setItem(LS_KEY, JSON.stringify(pbs));
+    localStorage.setItem(LS_KEY, JSON.stringify({ __version: LS_VERSION, data: pbs }));
   } catch {}
 }
 
@@ -149,10 +197,13 @@ export default function Playbooks() {
     return true;
   });
 
+  const hasActiveFilters = category !== "All" || status !== "All" || search !== "";
+
   const totalRuns    = playbooks.reduce((s, p) => s + p.completedRuns, 0);
   const activeCount  = playbooks.filter(p => p.status === "active").length;
   const avgAutomation = Math.round(playbooks.reduce((s, p) => s + p.automationRate, 0) / playbooks.length);
 
+  function clearAllFilters() { setCategory("All"); setStatus("All"); setSearch(""); }
   function openBlank() { setForm(EMPTY_FORM); setFormError(""); setShowSuggestions(false); setModalOpen(true); }
 
   function prefillFromTemplate(t: typeof TEMPLATE_SUGGESTIONS[0]) {
@@ -187,23 +238,18 @@ export default function Playbooks() {
 
   function handleRun(pb: Playbook) {
     if (runningId === pb.id) {
-      // Stop
       setRunningId(null);
       toast({ title: `Playbook stopped: ${pb.name}`, description: "Execution aborted." });
       return;
     }
     setRunningId(pb.id);
     toast({ title: `Playbook triggered: ${pb.name}`, description: "Execution started. Monitor in the incident timeline." });
-
-    // Simulate execution finishing after a few seconds
     const now = new Date();
     const timeStr = now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true });
     setTimeout(() => {
       setRunningId(null);
       setPlaybooks(prev => prev.map(p =>
-        p.id === pb.id
-          ? { ...p, completedRuns: p.completedRuns + 1, lastRun: `Today at ${timeStr}` }
-          : p
+        p.id === pb.id ? { ...p, completedRuns: p.completedRuns + 1, lastRun: `Today at ${timeStr}` } : p
       ));
       toast({ title: `Playbook complete: ${pb.name}`, description: "Execution finished successfully." });
     }, 4000);
@@ -312,6 +358,12 @@ export default function Playbooks() {
               )}>{s}</button>
           ))}
         </div>
+        {hasActiveFilters && (
+          <button onClick={clearAllFilters}
+            className="flex items-center gap-1 text-xs font-mono text-muted-foreground hover:text-destructive transition-colors">
+            <FilterX className="w-3.5 h-3.5" />CLEAR
+          </button>
+        )}
       </div>
 
       <div className="grid grid-cols-3 gap-4">
@@ -367,13 +419,20 @@ export default function Playbooks() {
             );
           })}
           {filtered.length === 0 && (
-            <div className="text-center py-12 text-muted-foreground font-mono text-sm border border-dashed border-border">
-              No playbooks match your filters.
+            <div className="flex flex-col items-center justify-center py-14 text-center border border-dashed border-border gap-3">
+              <FilterX className="w-8 h-8 text-muted-foreground/30" />
+              <p className="text-sm font-mono text-muted-foreground">No playbooks match your current filters.</p>
+              {hasActiveFilters && (
+                <button onClick={clearAllFilters}
+                  className="text-xs font-mono text-primary border border-primary/30 px-3 py-1.5 hover:bg-primary/10 transition-colors flex items-center gap-1.5">
+                  <FilterX className="w-3 h-3" /> CLEAR ALL FILTERS
+                </button>
+              )}
             </div>
           )}
         </div>
 
-        {/* Detail panel — always derived from live playbooks array */}
+        {/* Detail panel */}
         <div className="bg-card border border-border p-5 self-start sticky top-6">
           {selected ? (
             <div className="space-y-4">
@@ -388,7 +447,6 @@ export default function Playbooks() {
               </div>
               <p className="text-xs text-muted-foreground font-mono">{selected.description}</p>
 
-              {/* Status badge in detail panel */}
               <div className="flex items-center gap-2">
                 <Badge className={cn("text-[10px] font-mono border px-2 py-0.5 flex items-center gap-1",
                   runningId === selected.id ? "text-primary border-primary/40 bg-primary/10 animate-pulse" : statusColors[selected.status])}>
