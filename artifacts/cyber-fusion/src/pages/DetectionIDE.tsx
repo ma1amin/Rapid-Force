@@ -21,6 +21,15 @@ interface RuleVersion {
   id: number; detectionId: number; version: string; ruleContent: string;
   stage: string; changelog: string; author: string; isCurrent: boolean; createdAt: string;
 }
+type RuleVersionView = RuleVersion & {
+  name: string;
+  type: string;
+  severity: string;
+  mitreTechnique: string | null;
+  mitreTactic: string | null;
+  tags: string | null;
+  description: string;
+};
 type VersionEntry = Detection | RuleVersion;
 
 interface CommunityRule {
@@ -245,6 +254,7 @@ export default function DetectionIDE() {
 
   const stageOf = (d: Detection) => d.status === "active" ? "production" : d.status === "testing" ? "test" : d.status === "review" ? "review" : "draft";
   const nextStageLabel = (d: Detection) => ({ disabled: "→ REVIEW", review: "→ TEST", testing: "→ PRODUCTION", active: "DEPLOYED" }[d.status] ?? "→ NEXT");
+  const selectedVersionRule = selectedVersionTab ? versions.find(v => v.version === selectedVersionTab) ?? null : null;
 
   const allSources = ["All", ...Array.from(new Set(community.map(r => r.source ?? "Other")))];
   const filteredCommunity = community.filter(r => {
@@ -360,105 +370,96 @@ export default function DetectionIDE() {
           {/* Rule Detail Panel */}
           {selected && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-              <div className="w-full max-w-4xl h-[85vh] border border-border bg-background flex overflow-hidden shadow-2xl">
-              {/* Panel Header */}
-              <div className="flex items-center justify-between px-4 py-2.5 border-b border-border bg-muted/10 shrink-0">
-                <div className="flex items-center gap-2">
-                  <Code2 className="h-4 w-4 text-primary" />
-                  <span className="text-xs font-mono text-primary">RULE EDITOR</span>
-                </div>
-                <div className="flex gap-2">
-                  <Button size="sm" variant="outline" className="h-6 text-xs font-mono"
-                    onClick={() => setCommitOpen(true)}>
-                    <Upload className="h-3 w-3 mr-1" />COMMIT
-                  </Button>
-                  <button onClick={() => setSelected(null)} className="text-muted-foreground hover:text-foreground">
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
-              </div>
-
-              {/* Rule Meta */}
-              <div className="p-3 border-b border-border shrink-0">
-                <div className="font-medium text-sm mb-1">{selected.name}</div>
-                <div className="flex flex-wrap gap-1 mb-2">
-                  <Badge variant="outline" className={cn("text-xs", TYPE_COLORS[selected.type])}>{selected.type.toUpperCase()}</Badge>
-                  <Badge variant="outline" className={cn("text-xs", SEV_COLORS[selected.severity])}>{selected.severity.toUpperCase()}</Badge>
-                  <Badge variant="outline" className={cn("text-xs", stageOf(selected) === "production" ? "text-primary border-primary/40" : "text-muted-foreground border-border")}>
-                    {stageOf(selected).toUpperCase()}
-                  </Badge>
-                </div>
-                <p className="text-xs text-muted-foreground mb-2">{selected.description}</p>
-                <div className="flex flex-wrap gap-3 text-xs font-mono text-muted-foreground">
-                  {selected.mitreTechnique && <span className="text-primary">{selected.mitreTechnique}</span>}
-                  {selected.author && <span>BY {selected.author.toUpperCase()}</span>}
-                  {selected.version && <span>v{selected.version}</span>}
-                </div>
-              </div>
-
-              {/* Editor */}
-              <div className="flex-1 overflow-hidden min-h-0" style={{ minHeight: 180 }}>
-                <Suspense fallback={<div className="flex items-center justify-center h-32 text-muted-foreground text-xs"><Loader2 className="h-4 w-4 animate-spin mr-2" />Loading editor...</div>}>
-                  <RuleEditor type={selected.type} value={editedRule} onChange={setEditedRule} />
-                </Suspense>
-              </div>
-
-              {/* Advance */}
-              {selected.status !== "active" && (
-                <div className="p-3 border-t border-border shrink-0">
-                  <Button size="sm" className="w-full font-mono text-xs bg-primary text-primary-foreground"
-                    onClick={() => advance(selected.id)} disabled={advancing === selected.id}>
-                    {advancing === selected.id ? <Loader2 className="h-3 w-3 mr-2 animate-spin" /> : <ArrowRight className="h-3 w-3 mr-2" />}
-                    {nextStageLabel(selected)}
-                  </Button>
-                </div>
-              )}
-
-              {/* Version History Section */}
-              <div className="border-t border-border shrink-0">
-                  <button
-                  onClick={() => setVersionsOpen(v => !v)}
-                  className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-muted/10 transition-colors">
+              <div className="w-full max-w-5xl h-[88vh] border border-border bg-background flex flex-col overflow-hidden shadow-2xl">
+                <div className="flex items-center justify-between px-4 py-2.5 border-b border-border bg-muted/10 shrink-0">
                   <div className="flex items-center gap-2">
-                    <GitBranch className="h-3.5 w-3.5 text-muted-foreground" />
-                    <span className="text-xs font-mono text-muted-foreground">VERSION HISTORY</span>
-                    {versions.length > 0 && (
-                      <Badge variant="outline" className="text-xs text-muted-foreground border-border">{versions.length}</Badge>
-                    )}
+                    <Code2 className="h-4 w-4 text-primary" />
+                    <span className="text-xs font-mono text-primary">RULE EDITOR</span>
                   </div>
-                  {versionsOpen ? <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />}
-                </button>
-                {versionsOpen && (
-                  <div className="px-3 pb-3 max-h-48 overflow-y-auto space-y-2">
-                    {versions.length === 0 ? (
-                      <p className="text-xs text-muted-foreground text-center py-3">No versions yet. Use COMMIT to save a new version.</p>
-                    ) : versions.map(v => (
-                          <div key={v.id} className={cn("border p-2.5", v.isCurrent ? "border-primary/40 bg-primary/5" : "border-border bg-muted/10")}>
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-xs font-mono font-bold text-primary">v{v.version}</span>
-                          <div className="flex items-center gap-1.5">
-                            {v.isCurrent && <Badge variant="outline" className="text-xs text-primary border-primary/40 py-0">CURRENT</Badge>}
-                            <Badge variant="outline" className="text-xs text-muted-foreground py-0">{v.stage.toUpperCase()}</Badge>
-                          </div>
-                        </div>
-                            <div className="flex items-center gap-1 mb-1">
-                              <Button size="sm" variant="outline" className="h-6 text-xs font-mono" onClick={() => editVersion(v)}>
-                                <Pencil className="h-3 w-3 mr-1" />EDIT
-                              </Button>
-                              {!v.isCurrent && (
-                                <Button size="sm" variant="outline" className="h-6 text-xs font-mono text-red-400 border-red-500/30" onClick={() => deleteVersion(v)} disabled={deletingVersionId === v.id}>
-                                  {deletingVersionId === v.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <><Trash2 className="h-3 w-3 mr-1" />DELETE</>}
-                                </Button>
-                              )}
-                            </div>
-                        <p className="text-xs text-muted-foreground mb-1">{v.changelog}</p>
-                        <div className="text-xs font-mono text-muted-foreground opacity-70">{v.author} · {timeAgo(v.createdAt)}</div>
-                      </div>
-                    ))}
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="outline" className="h-6 text-xs font-mono"
+                      onClick={() => setCommitOpen(true)}>
+                      <Upload className="h-3 w-3 mr-1" />COMMIT
+                    </Button>
+                    <button onClick={() => setSelected(null)} className="text-muted-foreground hover:text-foreground">
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+                <div className="p-3 border-b border-border shrink-0">
+                  <div className="font-medium text-sm mb-1">{selected.name}</div>
+                  <div className="flex flex-wrap gap-1 mb-2">
+                    <Badge variant="outline" className={cn("text-xs", TYPE_COLORS[selected.type])}>{selected.type.toUpperCase()}</Badge>
+                    <Badge variant="outline" className={cn("text-xs", SEV_COLORS[selected.severity])}>{selected.severity.toUpperCase()}</Badge>
+                    <Badge variant="outline" className={cn("text-xs", stageOf(selected) === "production" ? "text-primary border-primary/40" : "text-muted-foreground border-border")}>
+                      {stageOf(selected).toUpperCase()}
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground mb-2">{selected.description}</p>
+                  <div className="flex flex-wrap gap-3 text-xs font-mono text-muted-foreground">
+                    {selected.mitreTechnique && <span className="text-primary">{selected.mitreTechnique}</span>}
+                    {selected.author && <span>BY {selected.author.toUpperCase()}</span>}
+                    {selected.version && <span>v{selected.version}</span>}
+                  </div>
+                </div>
+                <div className="flex-1 min-h-0 overflow-auto p-4">
+                  <Suspense fallback={<div className="flex items-center justify-center h-32 text-muted-foreground text-xs"><Loader2 className="h-4 w-4 animate-spin mr-2" />Loading editor...</div>}>
+                    <RuleEditor type={selected.type} value={editedRule} onChange={setEditedRule} />
+                  </Suspense>
+                </div>
+                {selected.status !== "active" && (
+                  <div className="p-3 border-t border-border shrink-0">
+                    <Button size="sm" className="w-full font-mono text-xs bg-primary text-primary-foreground"
+                      onClick={() => advance(selected.id)} disabled={advancing === selected.id}>
+                      {advancing === selected.id ? <Loader2 className="h-3 w-3 mr-2 animate-spin" /> : <ArrowRight className="h-3 w-3 mr-2" />}
+                      {nextStageLabel(selected)}
+                    </Button>
                   </div>
                 )}
+                <div className="border-t border-border shrink-0">
+                  <button
+                    onClick={() => setVersionsOpen(v => !v)}
+                    className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-muted/10 transition-colors">
+                    <div className="flex items-center gap-2">
+                      <GitBranch className="h-3.5 w-3.5 text-muted-foreground" />
+                      <span className="text-xs font-mono text-muted-foreground">VERSION HISTORY</span>
+                      {versions.length > 0 && (
+                        <Badge variant="outline" className="text-xs text-muted-foreground border-border">{versions.length}</Badge>
+                      )}
+                    </div>
+                    {versionsOpen ? <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />}
+                  </button>
+                  {versionsOpen && (
+                    <div className="px-3 pb-3 max-h-48 overflow-y-auto space-y-2">
+                      {versions.length === 0 ? (
+                        <p className="text-xs text-muted-foreground text-center py-3">No versions yet. Use COMMIT to save a new version.</p>
+                      ) : versions.map(v => (
+                        <div key={v.id} className={cn("border p-2.5", v.isCurrent ? "border-primary/40 bg-primary/5" : "border-border bg-muted/10")}>
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-xs font-mono font-bold text-primary">v{v.version}</span>
+                            <div className="flex items-center gap-1.5">
+                              {v.isCurrent && <Badge variant="outline" className="text-xs text-primary border-primary/40 py-0">CURRENT</Badge>}
+                              <Badge variant="outline" className="text-xs text-muted-foreground py-0">{v.stage.toUpperCase()}</Badge>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1 mb-1">
+                            <Button size="sm" variant="outline" className="h-6 text-xs font-mono" onClick={() => editVersion(v)}>
+                              <Pencil className="h-3 w-3 mr-1" />EDIT
+                            </Button>
+                            {!v.isCurrent && (
+                              <Button size="sm" variant="outline" className="h-6 text-xs font-mono text-red-400 border-red-500/30" onClick={() => deleteVersion(v)} disabled={deletingVersionId === v.id}>
+                                {deletingVersionId === v.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <><Trash2 className="h-3 w-3 mr-1" />DELETE</>}
+                              </Button>
+                            )}
+                          </div>
+                          <p className="text-xs text-muted-foreground mb-1">{v.changelog}</p>
+                          <div className="text-xs font-mono text-muted-foreground opacity-70">{v.author} · {timeAgo(v.createdAt)}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
           </div>
           )}
         </div>
@@ -547,9 +548,10 @@ export default function DetectionIDE() {
                     const match = versions.find(v => v.version === rule.version) ?? null;
                     setSelectedVersionTab(rule.version);
                     if (match) {
-                      setSelected({ id: match.detectionId, name: selected?.name ?? "Rule", type: selected?.type ?? "sigma", severity: selected?.severity ?? "medium", status: selected?.status ?? "disabled", ruleContent: match.ruleContent, mitreTechnique: selected?.mitreTechnique ?? null, mitreTactic: selected?.mitreTactic ?? null, tags: selected?.tags ?? null, author: match.author, version: match.version, description: selected?.description ?? "" });
+                      setSelected({ id: match.detectionId, name: selected?.name ?? "Rule", type: selected?.type ?? "sigma", severity: selected?.severity ?? "medium", status: "disabled", ruleContent: match.ruleContent, mitreTechnique: selected?.mitreTechnique ?? null, mitreTactic: selected?.mitreTactic ?? null, tags: selected?.tags ?? null, author: match.author, version: match.version, description: selected?.description ?? "" });
                       setEditedRule(match.ruleContent);
                       setChangelog(match.changelog);
+                      setTab("Pipeline");
                     }
                   }}
                   className={cn("text-left border bg-card p-4 hover:border-primary/50 transition-all",
@@ -569,7 +571,7 @@ export default function DetectionIDE() {
 
       {/* Commit Dialog */}
       <Dialog open={commitOpen} onOpenChange={setCommitOpen}>
-        <DialogContent className="bg-background border-border max-w-md">
+        <DialogContent className="bg-background border-border max-w-md mx-auto">
           <DialogHeader>
             <DialogTitle className="font-mono text-sm">COMMIT NEW VERSION — {selected?.name}</DialogTitle>
           </DialogHeader>
@@ -590,7 +592,7 @@ export default function DetectionIDE() {
 
       <Dialog open={!!versionDraft} onOpenChange={() => setVersionDraft(null)}>
         {versionDraft && (
-          <DialogContent className="bg-background border-border max-w-md">
+          <DialogContent className="bg-background border-border max-w-md mx-auto">
             <DialogHeader>
               <DialogTitle className="font-mono text-sm">EDIT VERSION — v{versionDraft.version}</DialogTitle>
             </DialogHeader>
@@ -614,7 +616,7 @@ export default function DetectionIDE() {
       {/* Community Rule Preview Dialog */}
       <Dialog open={!!communityOpen} onOpenChange={() => setCommunityOpen(null)}>
         {communityOpen && (
-          <DialogContent className="bg-background border-border max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogContent className="bg-background border-border max-w-2xl max-h-[80vh] overflow-y-auto mx-auto">
             <DialogHeader>
               <DialogTitle className="font-mono text-sm">{communityOpen.name}</DialogTitle>
             </DialogHeader>
@@ -648,7 +650,7 @@ export default function DetectionIDE() {
       {/* Update Check Dialog */}
       <Dialog open={updateOpen} onOpenChange={setUpdateOpen}>
         {updateInfo && (
-          <DialogContent className="bg-background border-border max-w-lg max-h-[80vh] overflow-y-auto">
+          <DialogContent className="bg-background border-border max-w-lg max-h-[80vh] overflow-y-auto mx-auto">
             <DialogHeader>
               <DialogTitle className="font-mono text-sm">COMMUNITY RULE UPDATES</DialogTitle>
             </DialogHeader>
