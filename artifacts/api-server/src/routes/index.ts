@@ -1,19 +1,23 @@
 import { Router, type IRouter } from "express";
-import healthRouter from "./health";
-import agentsRouter from "./agents";
-import sprintsRouter from "./sprints";
-import missionsRouter from "./missions";
-import threatsRouter from "./threats";
-import activityRouter from "./activity";
-import detectionsRouter from "./detections";
-import incidentsRouter from "./incidents";
-import copilotRouter from "./copilot";
-import authRouter from "./auth";
-import licensesRouter from "./licenses";
-import adminRouter from "./admin";
-import vouchersRouter from "./vouchers";
+import healthRouter        from "./health";
+import agentsRouter        from "./agents";
+import sprintsRouter       from "./sprints";
+import missionsRouter      from "./missions";
+import threatsRouter       from "./threats";
+import activityRouter      from "./activity";
+import detectionsRouter    from "./detections";
+import incidentsRouter     from "./incidents";
+import copilotRouter       from "./copilot";
+import authRouter          from "./auth";
+import licensesRouter      from "./licenses";
+import adminRouter         from "./admin";
+import vouchersRouter      from "./vouchers";
 import announcementsRouter from "./announcements";
-import complianceRouter from "./compliance";
+import complianceRouter    from "./compliance";
+import uebaRouter          from "./ueba";
+import playbooksRouter     from "./playbooks";
+import executiveRouter     from "./executive";
+import ewsRouter           from "./ews";
 
 const router: IRouter = Router();
 
@@ -32,5 +36,9 @@ router.use(detectionsRouter);
 router.use(incidentsRouter);
 router.use(copilotRouter);
 router.use(complianceRouter);
+router.use(uebaRouter);
+router.use(playbooksRouter);
+router.use(executiveRouter);
+router.use(ewsRouter);
 
 export default router;

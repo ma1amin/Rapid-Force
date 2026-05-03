@@ -11,3 +11,6 @@ export * from "./audit";
 export * from "./vouchers";
 export * from "./admin_notes";
 export * from "./announcements";
+export * from "./ueba";
+export * from "./playbooks";
+export * from "./ews";

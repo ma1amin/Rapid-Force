@@ -1,22 +1,40 @@
-import { useState } from "react";
-import { Shield, TrendingUp, TrendingDown, AlertTriangle, Clock, Download, Activity, Target } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import { Shield, TrendingUp, TrendingDown, AlertTriangle, Clock, Download, Activity, Target, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 
-const PERIODS = ["Last 7 Days", "Last 30 Days", "Last Quarter", "YTD"];
+const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+const PERIODS = ["Last 7 Days", "Last 30 Days", "Last Quarter", "YTD"] as const;
+type Period = typeof PERIODS[number];
+const PERIOD_MAP: Record<Period, string> = { "Last 7 Days": "7d", "Last 30 Days": "30d", "Last Quarter": "90d", "YTD": "ytd" };
 
-const KPI_DATA = {
-  "Last 7 Days": { secScore: 78, scoreChange: +3, mttr: "4h 12m", mttrChange: -18, incidents: 14, incidentsChange: +2, threats: 847, threatsChange: -12, criticalOpen: 2, slaBreaches: 1, patchCompliance: 91, mfa: 88 },
-  "Last 30 Days": { secScore: 75, scoreChange: +6, mttr: "5h 44m", mttrChange: -31, incidents: 58, incidentsChange: -7, threats: 3241, threatsChange: +4, criticalOpen: 3, slaBreaches: 4, patchCompliance: 89, mfa: 86 },
-  "Last Quarter": { secScore: 71, scoreChange: +9, mttr: "6h 30m", mttrChange: -44, incidents: 173, incidentsChange: -21, threats: 9874, threatsChange: +18, criticalOpen: 5, slaBreaches: 9, patchCompliance: 84, mfa: 82 },
-  "YTD": { secScore: 68, scoreChange: +12, mttr: "7h 55m", mttrChange: -52, incidents: 341, incidentsChange: -34, threats: 19203, threatsChange: +23, criticalOpen: 5, slaBreaches: 17, patchCompliance: 81, mfa: 79 },
+interface Summary {
+  secScore: number;
+  patchCompliance: number;
+  mfaCoverage: number;
+  mttdFormatted: string;
+  mttrFormatted: string;
+  threatsBlocked: number;
+  activeThreats: number;
+  criticalOpen: number;
+  openIncidents: number;
+  slaBreaches: number;
+  totalIncidents: number;
+  totalThreats: number;
+}
+
+interface RiskPosture { incidentTrend: number[]; threatTrend: number[] }
+interface ThreatLandscape { total: number; bySeverity: Record<string,number>; byStatus: Record<string,number> }
+interface ComplianceFramework { key: string; shortName: string; score: number; color: string }
+
+const FRAMEWORK_COLORS: Record<string, string> = {
+  nist_csf: "bg-cyan-500", iso_27001: "bg-violet-500", cis_controls: "bg-amber-500",
+  soc2: "bg-emerald-500", hipaa: "bg-rose-500", cmmc: "bg-orange-500",
 };
 
-const INCIDENT_TREND = [3, 5, 2, 4, 1, 6, 3, 2, 4, 3, 5, 2, 4, 2];
-const THREAT_TREND   = [120, 145, 98, 210, 175, 134, 189, 156, 201, 178, 143, 167, 123, 145];
-
 function Sparkline({ data, color }: { data: number[]; color: string }) {
+  if (!data.length) return null;
   const max = Math.max(...data);
   const min = Math.min(...data);
   const range = max - min || 1;
@@ -49,32 +67,60 @@ function GaugeRing({ value, label, color }: { value: number; label: string; colo
 
 export default function ExecutiveDashboard() {
   const { toast } = useToast();
-  const [period, setPeriod] = useState<keyof typeof KPI_DATA>("Last 30 Days");
-  const kpi = KPI_DATA[period];
+  const [period, setPeriod]       = useState<Period>("Last 30 Days");
+  const [summary, setSummary]     = useState<Summary | null>(null);
+  const [posture, setPosture]     = useState<RiskPosture | null>(null);
+  const [landscape, setLandscape] = useState<ThreatLandscape | null>(null);
+  const [compliance, setCompliance] = useState<ComplianceFramework[]>([]);
+  const [loading, setLoading]     = useState(true);
+
+  const fetchAll = useCallback(async (p: Period) => {
+    setLoading(true);
+    try {
+      const [summRes, postureRes, landRes, compRes] = await Promise.all([
+        fetch(`${BASE}/api/executive/summary?period=${PERIOD_MAP[p]}`,         { credentials: "include" }),
+        fetch(`${BASE}/api/executive/risk-posture`,                             { credentials: "include" }),
+        fetch(`${BASE}/api/executive/threat-landscape?period=${PERIOD_MAP[p]}`, { credentials: "include" }),
+        fetch(`${BASE}/api/compliance/posture`,                                 { credentials: "include" }),
+      ]);
+      if (summRes.ok)    setSummary(await summRes.json());
+      if (postureRes.ok) setPosture(await postureRes.json());
+      if (landRes.ok)    setLandscape(await landRes.json());
+      if (compRes.ok) {
+        const d = await compRes.json();
+        setCompliance((d.frameworks ?? []).map((f: any) => ({
+          key: f.key, shortName: f.shortName, score: f.score,
+          color: FRAMEWORK_COLORS[f.key] ?? "bg-primary",
+        })));
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchAll(period); }, [period, fetchAll]);
 
   function exportReport() {
+    if (!summary) return;
     const lines = [
       `RAPID FORCE CYBER FUSION — EXECUTIVE SECURITY REPORT`,
       `Period: ${period}`,
       `Generated: ${new Date().toLocaleString()}`,
       ``,
-      `OVERALL SECURITY POSTURE SCORE: ${kpi.secScore}/100 (${kpi.scoreChange > 0 ? "+" : ""}${kpi.scoreChange} pts)`,
-      `PATCH COMPLIANCE: ${kpi.patchCompliance}%`,
-      `MFA COVERAGE: ${kpi.mfa}%`,
+      `OVERALL SECURITY POSTURE SCORE: ${summary.secScore}/100`,
+      `PATCH COMPLIANCE: ${summary.patchCompliance}%`,
+      `MFA COVERAGE: ${summary.mfaCoverage}%`,
       ``,
       `KEY METRICS`,
-      `  Mean Time to Respond: ${kpi.mttr}`,
-      `  Security Incidents: ${kpi.incidents}`,
-      `  Threats Blocked: ${kpi.threats.toLocaleString()}`,
-      `  SLA Breaches: ${kpi.slaBreaches}`,
-      `  Critical Open Items: ${kpi.criticalOpen}`,
+      `  Mean Time to Detect: ${summary.mttdFormatted}`,
+      `  Mean Time to Respond: ${summary.mttrFormatted}`,
+      `  Security Incidents: ${summary.totalIncidents}`,
+      `  Threats Blocked: ${summary.threatsBlocked.toLocaleString()}`,
+      `  SLA Breaches: ${summary.slaBreaches}`,
+      `  Critical Open Items: ${summary.criticalOpen}`,
       ``,
       `COMPLIANCE POSTURE`,
-      `  NIST CSF: 82%`,
-      `  ISO 27001: 76%`,
-      `  SOC 2 Type II: 91%`,
-      `  HIPAA: 68%`,
-      `  CIS Controls v8: 79%`,
+      ...compliance.map(f => `  ${f.shortName}: ${f.score}%`),
     ];
     const blob = new Blob([lines.join("\n")], { type: "text/plain" });
     const a = document.createElement("a");
@@ -84,6 +130,8 @@ export default function ExecutiveDashboard() {
     URL.revokeObjectURL(a.href);
     toast({ title: "Report exported", description: `Executive security report for ${period} downloaded.` });
   }
+
+  const kpi = summary;
 
   return (
     <div className="space-y-6">
@@ -97,163 +145,190 @@ export default function ExecutiveDashboard() {
         <div className="flex items-center gap-3">
           <div className="flex gap-1 bg-card border border-border p-1">
             {PERIODS.map(p => (
-              <button key={p} onClick={() => setPeriod(p as keyof typeof KPI_DATA)}
+              <button key={p} onClick={() => setPeriod(p)}
                 className={cn("px-3 py-1 text-xs font-mono transition-all",
                   period === p ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground"
                 )}>{p}</button>
             ))}
           </div>
-          <Button onClick={exportReport} className="bg-card border border-border text-muted-foreground hover:bg-muted font-mono text-xs gap-2 h-8">
+          <Button onClick={exportReport} disabled={!kpi} className="bg-card border border-border text-muted-foreground hover:bg-muted font-mono text-xs gap-2 h-8">
             <Download className="w-3.5 h-3.5" /> EXPORT REPORT
           </Button>
         </div>
       </div>
 
-      {/* Security score banner */}
-      <div className="bg-card border border-primary/20 p-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="text-xs text-primary/70 font-mono tracking-widest mb-1">OVERALL SECURITY POSTURE SCORE</div>
-            <div className="flex items-end gap-3">
-              <span className="text-6xl font-black font-mono text-primary">{kpi.secScore}</span>
-              <span className="text-xl font-mono text-muted-foreground mb-2">/100</span>
-              <div className={cn("flex items-center gap-1 mb-3 text-sm font-mono font-bold",
-                kpi.scoreChange > 0 ? "text-emerald-400" : "text-red-400")}>
-                {kpi.scoreChange > 0 ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
-                {kpi.scoreChange > 0 ? "+" : ""}{kpi.scoreChange} pts
-              </div>
-            </div>
-            <div className="w-64 bg-muted rounded-full h-2 mt-2">
-              <div className="bg-primary h-2 rounded-full transition-all" style={{ width: `${kpi.secScore}%` }} />
-            </div>
-          </div>
-          <div className="flex gap-6">
-            <GaugeRing value={kpi.patchCompliance} label="PATCH COMPLIANCE" color="hsl(var(--primary))" />
-            <GaugeRing value={kpi.mfa} label="MFA COVERAGE" color="#a78bfa" />
-          </div>
+      {loading ? (
+        <div className="flex items-center justify-center py-20 gap-3 text-muted-foreground font-mono text-xs">
+          <Loader2 className="w-5 h-5 animate-spin" /> Loading executive metrics...
         </div>
-      </div>
-
-      {/* KPI cards */}
-      <div className="grid grid-cols-4 gap-4">
-        {[
-          { label: "MEAN TIME TO RESPOND", value: kpi.mttr, change: kpi.mttrChange, unit: "% vs prior", good: "down", icon: Clock, color: "text-amber-400" },
-          { label: "SECURITY INCIDENTS", value: kpi.incidents, change: kpi.incidentsChange, unit: "% vs prior", good: "down", icon: AlertTriangle, color: "text-destructive" },
-          { label: "THREATS BLOCKED", value: kpi.threats.toLocaleString(), change: kpi.threatsChange, unit: "% vs prior", good: "up", icon: Shield, color: "text-primary" },
-          { label: "SLA BREACHES", value: kpi.slaBreaches, change: 0, unit: "this period", good: "zero", icon: Target, color: kpi.slaBreaches === 0 ? "text-emerald-400" : kpi.slaBreaches <= 3 ? "text-yellow-400" : "text-destructive" },
-        ].map(stat => {
-          const isGood = stat.good === "up" ? stat.change > 0 : stat.good === "down" ? stat.change < 0 : stat.change === 0;
-          const changeColor = stat.change === 0 ? "text-muted-foreground" : isGood ? "text-emerald-400" : "text-red-400";
-          return (
-            <div key={stat.label} className="bg-card border border-border p-4">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-xs text-muted-foreground font-mono tracking-wider leading-tight">{stat.label}</span>
-                <stat.icon className={cn("w-4 h-4 flex-shrink-0", stat.color)} />
-              </div>
-              <div className={cn("text-2xl font-bold font-mono", stat.color)}>{stat.value}</div>
-              {stat.change !== 0 ? (
-                <div className={cn("text-xs font-mono mt-1", changeColor)}>
-                  {stat.change > 0 ? "+" : ""}{stat.change}% {stat.unit}
+      ) : kpi ? (
+        <>
+          {/* Security score banner */}
+          <div className="bg-card border border-primary/20 p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-xs text-primary/70 font-mono tracking-widest mb-1">OVERALL SECURITY POSTURE SCORE</div>
+                <div className="flex items-end gap-3">
+                  <span className="text-6xl font-black font-mono text-primary">{kpi.secScore}</span>
+                  <span className="text-xl font-mono text-muted-foreground mb-2">/100</span>
                 </div>
-              ) : (
-                <div className="text-xs font-mono mt-1 text-muted-foreground">{stat.unit}</div>
-              )}
+                <div className="w-64 bg-muted rounded-full h-2 mt-2">
+                  <div className="bg-primary h-2 rounded-full transition-all" style={{ width: `${kpi.secScore}%` }} />
+                </div>
+              </div>
+              <div className="flex gap-6">
+                <GaugeRing value={kpi.patchCompliance} label="PATCH COMPLIANCE" color="hsl(var(--primary))" />
+                <GaugeRing value={kpi.mfaCoverage} label="MFA COVERAGE" color="#a78bfa" />
+              </div>
             </div>
-          );
-        })}
-      </div>
+          </div>
 
-      {/* Trend charts */}
-      <div className="grid grid-cols-2 gap-4">
-        <div className="bg-card border border-border p-4">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-xs text-muted-foreground font-mono tracking-wider">INCIDENT VOLUME TREND</span>
-            <Activity className="w-4 h-4 text-red-400" />
-          </div>
-          <Sparkline data={INCIDENT_TREND} color="#f87171" />
-          <div className="flex justify-between text-[10px] font-mono text-muted-foreground mt-1">
-            <span>14 days ago</span><span>Today</span>
-          </div>
-        </div>
-        <div className="bg-card border border-border p-4">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-xs text-muted-foreground font-mono tracking-wider">THREATS BLOCKED / DAY</span>
-            <Shield className="w-4 h-4 text-primary" />
-          </div>
-          <Sparkline data={THREAT_TREND} color="hsl(var(--primary))" />
-          <div className="flex justify-between text-[10px] font-mono text-muted-foreground mt-1">
-            <span>14 days ago</span><span>Today</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Incident severity breakdown + compliance */}
-      <div className="grid grid-cols-3 gap-4">
-        <div className="col-span-2 bg-card border border-border p-4">
-          <div className="text-xs text-muted-foreground font-mono tracking-wider mb-4">INCIDENT SEVERITY BREAKDOWN</div>
-          <div className="space-y-3">
+          {/* KPI cards */}
+          <div className="grid grid-cols-4 gap-4">
             {[
-              { label: "Critical", count: kpi.criticalOpen, pct: 14, color: "bg-red-500",     text: "text-red-400" },
-              { label: "High",     count: 8,                pct: 30, color: "bg-orange-500",  text: "text-orange-400" },
-              { label: "Medium",   count: 17,               pct: 40, color: "bg-yellow-500",  text: "text-yellow-400" },
-              { label: "Low",      count: 21,               pct: 16, color: "bg-emerald-500", text: "text-emerald-400" },
-            ].map(row => (
-              <div key={row.label} className="flex items-center gap-3">
-                <span className={cn("text-xs font-mono w-16 flex-shrink-0", row.text)}>{row.label}</span>
-                <div className="flex-1 bg-muted rounded-full h-2">
-                  <div className={cn("h-2 rounded-full", row.color)} style={{ width: `${row.pct}%` }} />
+              { label: "MEAN TIME TO RESPOND", value: kpi.mttrFormatted,           icon: Clock,         color: "text-amber-400"   },
+              { label: "SECURITY INCIDENTS",   value: kpi.totalIncidents,           icon: AlertTriangle, color: "text-destructive"  },
+              { label: "THREATS BLOCKED",      value: kpi.threatsBlocked.toLocaleString(), icon: Shield, color: "text-primary"     },
+              { label: "SLA BREACHES",         value: kpi.slaBreaches,              icon: Target, color: kpi.slaBreaches === 0 ? "text-emerald-400" : kpi.slaBreaches <= 3 ? "text-yellow-400" : "text-destructive" },
+            ].map(stat => (
+              <div key={stat.label} className="bg-card border border-border p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-xs text-muted-foreground font-mono tracking-wider leading-tight">{stat.label}</span>
+                  <stat.icon className={cn("w-4 h-4 flex-shrink-0", stat.color)} />
                 </div>
-                <span className="text-xs font-mono text-muted-foreground w-6 text-right">{row.count}</span>
+                <div className={cn("text-2xl font-bold font-mono", stat.color)}>{stat.value}</div>
               </div>
             ))}
           </div>
-        </div>
 
-        <div className="bg-card border border-border p-4">
-          <div className="text-xs text-muted-foreground font-mono tracking-wider mb-4">COMPLIANCE STATUS</div>
-          <div className="space-y-2.5">
-            {[
-              { label: "NIST CSF",  score: 82, color: "bg-primary" },
-              { label: "ISO 27001", score: 76, color: "bg-violet-500" },
-              { label: "SOC 2",     score: 91, color: "bg-emerald-500" },
-              { label: "HIPAA",     score: 68, color: "bg-amber-500" },
-              { label: "CIS v8",    score: 79, color: "bg-blue-500" },
-            ].map(f => (
-              <div key={f.label}>
-                <div className="flex justify-between text-xs font-mono mb-1">
-                  <span className="text-muted-foreground">{f.label}</span>
-                  <span className="text-foreground">{f.score}%</span>
+          {/* Trend charts */}
+          {posture && (
+            <div className="grid grid-cols-2 gap-4">
+              <div className="bg-card border border-border p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-xs text-muted-foreground font-mono tracking-wider">INCIDENT VOLUME TREND (14 DAYS)</span>
+                  <Activity className="w-4 h-4 text-red-400" />
                 </div>
-                <div className="w-full bg-muted rounded-full h-1.5">
-                  <div className={cn("h-1.5 rounded-full", f.color)} style={{ width: `${f.score}%` }} />
+                <Sparkline data={posture.incidentTrend} color="#f87171" />
+                <div className="flex justify-between text-[10px] font-mono text-muted-foreground mt-1">
+                  <span>14 days ago</span><span>Today</span>
                 </div>
               </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Critical open items */}
-      {kpi.criticalOpen > 0 && (
-        <div className="bg-destructive/5 border border-destructive/30 p-4">
-          <div className="flex items-center gap-2 mb-3">
-            <AlertTriangle className="w-4 h-4 text-destructive" />
-            <span className="text-xs font-mono text-destructive tracking-wider">{kpi.criticalOpen} CRITICAL OPEN ITEMS REQUIRE EXECUTIVE ATTENTION</span>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            {[
-              { title: "Active Ransomware Campaign", since: "2h ago", owner: "SOC Team" },
-              { title: "Unpatched CVE-2024-4577 on 12 hosts", since: "5d ago", owner: "IT Ops" },
-            ].slice(0, kpi.criticalOpen).map(item => (
-              <div key={item.title} className="bg-destructive/10 border border-destructive/20 p-3">
-                <div className="text-xs font-mono text-destructive font-semibold">{item.title}</div>
-                <div className="flex gap-4 mt-1 text-[10px] font-mono text-destructive/70">
-                  <span>Open {item.since}</span><span>Owner: {item.owner}</span>
+              <div className="bg-card border border-border p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-xs text-muted-foreground font-mono tracking-wider">THREATS BLOCKED / DAY (14 DAYS)</span>
+                  <Shield className="w-4 h-4 text-primary" />
+                </div>
+                <Sparkline data={posture.threatTrend} color="hsl(var(--primary))" />
+                <div className="flex justify-between text-[10px] font-mono text-muted-foreground mt-1">
+                  <span>14 days ago</span><span>Today</span>
                 </div>
               </div>
-            ))}
+            </div>
+          )}
+
+          {/* Threat landscape + compliance */}
+          <div className="grid grid-cols-3 gap-4">
+            {landscape && (
+              <div className="col-span-2 bg-card border border-border p-4">
+                <div className="text-xs text-muted-foreground font-mono tracking-wider mb-4">THREAT LANDSCAPE — {period.toUpperCase()}</div>
+                <div className="grid grid-cols-2 gap-6">
+                  <div>
+                    <div className="text-xs font-mono text-muted-foreground mb-3 tracking-wider">BY SEVERITY</div>
+                    <div className="space-y-3">
+                      {[
+                        { label: "Critical", count: landscape.bySeverity.critical ?? 0, color: "bg-red-500",     text: "text-red-400" },
+                        { label: "High",     count: landscape.bySeverity.high ?? 0,     color: "bg-orange-500",  text: "text-orange-400" },
+                        { label: "Medium",   count: landscape.bySeverity.medium ?? 0,   color: "bg-yellow-500",  text: "text-yellow-400" },
+                        { label: "Low",      count: landscape.bySeverity.low ?? 0,      color: "bg-emerald-500", text: "text-emerald-400" },
+                      ].map(row => {
+                        const pct = landscape.total > 0 ? Math.round((row.count / landscape.total) * 100) : 0;
+                        return (
+                          <div key={row.label} className="flex items-center gap-3">
+                            <span className={cn("text-xs font-mono w-16 flex-shrink-0", row.text)}>{row.label}</span>
+                            <div className="flex-1 bg-muted rounded-full h-2">
+                              <div className={cn("h-2 rounded-full", row.color)} style={{ width: `${pct}%` }} />
+                            </div>
+                            <span className="text-xs font-mono text-muted-foreground w-6 text-right">{row.count}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs font-mono text-muted-foreground mb-3 tracking-wider">BY STATUS</div>
+                    <div className="space-y-3">
+                      {[
+                        { label: "Active",     count: landscape.byStatus.active ?? 0,    color: "bg-red-500",     text: "text-red-400" },
+                        { label: "Monitoring", count: landscape.byStatus.monitoring ?? 0, color: "bg-amber-500",   text: "text-amber-400" },
+                        { label: "Mitigated",  count: landscape.byStatus.mitigated ?? 0,  color: "bg-emerald-500", text: "text-emerald-400" },
+                      ].map(row => {
+                        const pct = landscape.total > 0 ? Math.round((row.count / landscape.total) * 100) : 0;
+                        return (
+                          <div key={row.label} className="flex items-center gap-3">
+                            <span className={cn("text-xs font-mono w-20 flex-shrink-0", row.text)}>{row.label}</span>
+                            <div className="flex-1 bg-muted rounded-full h-2">
+                              <div className={cn("h-2 rounded-full", row.color)} style={{ width: `${pct}%` }} />
+                            </div>
+                            <span className="text-xs font-mono text-muted-foreground w-6 text-right">{row.count}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <div className="mt-4 pt-4 border-t border-border text-xs font-mono">
+                      <div className="flex justify-between text-muted-foreground mb-1"><span>Total threats</span><span className="text-foreground">{landscape.total}</span></div>
+                      <div className="flex justify-between text-muted-foreground"><span>Open incidents</span><span className="text-foreground">{kpi.openIncidents}</span></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {compliance.length > 0 && (
+              <div className="bg-card border border-border p-4">
+                <div className="text-xs text-muted-foreground font-mono tracking-wider mb-4">COMPLIANCE STATUS</div>
+                <div className="space-y-2.5">
+                  {compliance.slice(0, 6).map(f => (
+                    <div key={f.key}>
+                      <div className="flex justify-between text-xs font-mono mb-1">
+                        <span className="text-muted-foreground">{f.shortName}</span>
+                        <span className="text-foreground">{f.score}%</span>
+                      </div>
+                      <div className="w-full bg-muted rounded-full h-1.5">
+                        <div className={cn("h-1.5 rounded-full", f.color)} style={{ width: `${f.score}%` }} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
-        </div>
+
+          {/* Critical open items */}
+          {kpi.criticalOpen > 0 && (
+            <div className="bg-destructive/5 border border-destructive/30 p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <AlertTriangle className="w-4 h-4 text-destructive" />
+                <span className="text-xs font-mono text-destructive tracking-wider">{kpi.criticalOpen} CRITICAL OPEN ITEMS REQUIRE EXECUTIVE ATTENTION</span>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  { title: "Active Critical Incidents", since: "ongoing", owner: "SOC Team" },
+                  { title: `${kpi.criticalOpen} unresolved critical incident${kpi.criticalOpen > 1 ? "s" : ""}`, since: "this period", owner: "IR Lead" },
+                ].slice(0, Math.min(kpi.criticalOpen, 2)).map(item => (
+                  <div key={item.title} className="bg-destructive/10 border border-destructive/20 p-3">
+                    <div className="text-xs font-mono text-destructive font-semibold">{item.title}</div>
+                    <div className="flex gap-4 mt-1 text-[10px] font-mono text-destructive/70">
+                      <span>{item.since}</span><span>Owner: {item.owner}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
+      ) : (
+        <div className="text-center py-16 text-muted-foreground font-mono text-xs">Failed to load executive metrics.</div>
       )}
     </div>
   );
