@@ -21,6 +21,7 @@ interface RuleVersion {
   id: number; detectionId: number; version: string; ruleContent: string;
   stage: string; changelog: string; author: string; isCurrent: boolean; createdAt: string;
 }
+type VersionEntry = Detection | RuleVersion;
 
 interface CommunityRule {
   name: string; type: string; severity: string; mitreTechnique: string; mitreTactic: string;
@@ -128,7 +129,7 @@ export default function DetectionIDE() {
     try {
       const res = await fetch(`${BASE}/api/rule-pipeline/${id}/versions`, { credentials: "include" });
       const data = await res.json();
-      setVersions(Array.isArray(data) ? data : []);
+      setVersions(Array.isArray(data) ? data.filter((v: RuleVersion) => v.author !== "system") : []);
     } catch { setVersions([]); }
   };
 
@@ -202,6 +203,7 @@ export default function DetectionIDE() {
 
   const totalRules = Object.values(board).flat().length;
   const versionHistoryList = Object.values(board).flat();
+  const versionHistoryItems = (versions.length > 0 ? versions : versionHistoryList.filter(rule => rule.author && rule.author !== "system")) as VersionEntry[];
 
   return (
     <div className="flex flex-col h-full min-h-0 bg-background">
@@ -470,23 +472,36 @@ export default function DetectionIDE() {
         <div className="flex flex-col flex-1 min-h-0">
               <div className="flex items-center justify-between px-4 py-2.5 border-b border-border bg-muted/5 shrink-0">
             <div className="text-xs font-mono text-muted-foreground">VERSION HISTORY</div>
-            <div className="text-xs font-mono text-muted-foreground">{versionHistoryList.length} RULES</div>
+            <div className="text-xs font-mono text-muted-foreground">{versionHistoryItems.length} RULES</div>
           </div>
           <div className="flex-1 overflow-y-auto p-4">
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-              {versionHistoryList.map(rule => (
+              {versionHistoryItems.map((rule) => (
                 <button
                   key={rule.id}
-                  onClick={() => selectDetection(rule)}
+                  onClick={() => ("status" in rule ? selectDetection(rule) : undefined)}
                   className={cn("text-left border bg-card p-4 hover:border-primary/50 transition-all",
-                    selectedVersionTab === rule.name ? "border-primary bg-primary/5" : "border-border")}
+                    "status" in rule && selectedVersionTab === rule.name ? "border-primary bg-primary/5" : "border-border")}
                 >
                   <div className="flex items-center gap-2 mb-2">
-                    <Badge variant="outline" className={cn("text-xs", TYPE_COLORS[rule.type])}>{rule.type.toUpperCase()}</Badge>
-                    <Badge variant="outline" className={cn("text-xs", SEV_COLORS[rule.severity])}>{rule.severity.toUpperCase()}</Badge>
+                    {"status" in rule && (
+                      <>
+                        <Badge variant="outline" className={cn("text-xs", TYPE_COLORS[rule.type])}>{rule.type.toUpperCase()}</Badge>
+                        <Badge variant="outline" className={cn("text-xs", SEV_COLORS[rule.severity])}>{rule.severity.toUpperCase()}</Badge>
+                      </>
+                    )}
                   </div>
-                  <div className="text-sm font-medium mb-1">{rule.name}</div>
-                  <div className="text-xs font-mono text-muted-foreground">{rule.version ?? "1.0"} · {rule.author ?? "system"}</div>
+                  {"status" in rule ? (
+                    <>
+                      <div className="text-sm font-medium mb-1">{rule.name}</div>
+                      <div className="text-xs font-mono text-muted-foreground">{rule.version ?? "1.0"} · {rule.author ?? "system"}</div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="text-sm font-medium mb-1">v{rule.version}</div>
+                      <div className="text-xs font-mono text-muted-foreground">{rule.author} · {timeAgo(rule.createdAt)}</div>
+                    </>
+                  )}
                 </button>
               ))}
             </div>
