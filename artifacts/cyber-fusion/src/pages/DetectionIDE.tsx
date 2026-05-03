@@ -86,10 +86,9 @@ export default function DetectionIDE() {
         fetch(`${BASE}/api/rule-pipeline/board`, { credentials: "include" }),
         fetch(`${BASE}/api/rule-pipeline/community`, { credentials: "include" }),
       ]);
-      const bData = await bRes.json();
-      const cData = await cRes.json();
-      setBoard(bData);
-      setCommunity(cData);
+      const [bData, cData] = await Promise.all([bRes.json(), cRes.json()]);
+      if (bData && typeof bData === "object" && !bData.error) setBoard(bData);
+      setCommunity(Array.isArray(cData) ? cData : []);
     } catch { toast({ title: "Failed to load pipeline", variant: "destructive" }); }
     finally { setLoading(false); }
   }, []);

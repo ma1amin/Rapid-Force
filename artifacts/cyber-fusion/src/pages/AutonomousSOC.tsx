@@ -83,8 +83,9 @@ export default function AutonomousSOC() {
         fetch(`${BASE}/api/autonomous/actions`, { credentials: "include" }),
         fetch(`${BASE}/api/autonomous/briefings`, { credentials: "include" }),
       ]);
-      setActions(await aRes.json());
-      setBriefings(await bRes.json());
+      const [aData, bData] = await Promise.all([aRes.json(), bRes.json()]);
+      setActions(Array.isArray(aData) ? aData : []);
+      setBriefings(Array.isArray(bData) ? bData : []);
     } catch { toast({ title: "Failed to load", variant: "destructive" }); }
     finally { setLoading(false); }
   }, []);

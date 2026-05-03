@@ -55,7 +55,8 @@ export default function PluginMarketplace() {
     setLoading(true);
     try {
       const res = await fetch(`${BASE}/api/plugins`, { credentials: "include" });
-      setPlugins(await res.json());
+      const data = await res.json();
+      setPlugins(Array.isArray(data) ? data : []);
     } catch { toast({ title: "Failed to load plugins", variant: "destructive" }); }
     finally { setLoading(false); }
   }, []);

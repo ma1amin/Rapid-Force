@@ -87,8 +87,9 @@ export default function AIAgentOrchestration() {
         fetch(`${BASE}/api/ai-agents`, { credentials: "include" }),
         fetch(`${BASE}/api/agent-tasks`, { credentials: "include" }),
       ]);
-      setAgents(await aRes.json());
-      setTasks(await tRes.json());
+      const [aData, tData] = await Promise.all([aRes.json(), tRes.json()]);
+      setAgents(Array.isArray(aData) ? aData : []);
+      setTasks(Array.isArray(tData) ? tData : []);
     } catch { toast({ title: "Failed to load", variant: "destructive" }); }
     finally { setLoading(false); }
   }, []);
