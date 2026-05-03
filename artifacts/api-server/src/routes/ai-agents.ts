@@ -1,6 +1,6 @@
 import { Router } from "express";
-import { db, aiAgentsTable, agentTasksTable, agentConversationsTable, incidentsTable } from "@workspace/db";
-import { eq, desc, and, inArray } from "drizzle-orm";
+import { db, aiAgentsTable, agentTasksTable, agentConversationsTable } from "@workspace/db";
+import { eq, desc } from "drizzle-orm";
 import { requireAuth } from "../middleware/requireAuth";
 import { openai } from "@workspace/integrations-openai-ai-server";
 
@@ -14,20 +14,32 @@ const SEED_AGENTS = [
   { name: "COMMANDER-0", role: "incident_commander" as const, description: "Senior incident commander that orchestrates multi-agent workflows, coordinates response, and makes escalation decisions.", specialization: "Incident orchestration, multi-agent coordination, stakeholder communication, executive reporting", status: "online" as const, tasksCompleted: 156, successRate: 98.7, model: "gpt-4o", capabilities: JSON.stringify(["Multi-agent orchestration", "Response coordination", "Escalation decisions", "Executive communication", "Post-incident review", "SLA enforcement"]), avatarColor: "#F59E0B" },
 ];
 
-const SEED_TASKS = [
-  { agentId: 1, incidentId: 1, type: "triage", title: "Triage: Active Ransomware Deployment", description: "Perform initial triage on active ransomware incident — classify severity, identify affected scope, extract IOCs.", status: "complete" as const, priority: "critical" as const, humanRequired: false, result: "Confirmed LockBit 3.0 variant. 3 nodes compromised. C2 at 185.220.101.47. Exfil via MEGA before encryption. Recommend immediate isolation of PROD-CLUSTER-01/02/03.", reasoning: "File entropy analysis, shadow copy deletion events, and C2 beaconing pattern match LockBit 3.0 TTP. High confidence classification.", evidence: JSON.stringify(["Process tree: vssadmin.exe delete shadows /all", "Network: beacon to 185.220.101.47:443 every 30s", "File: .lockbit extension on 847 files"]), startedAt: new Date(Date.now() - 3600000), completedAt: new Date(Date.now() - 3000000) },
-  { agentId: 2, incidentId: 3, type: "hunt", title: "Hunt: Credential Harvesting Precursors", description: "Search for credential harvesting activity that may precede the detected lateral movement campaign.", status: "in_progress" as const, priority: "high" as const, humanRequired: false, reasoning: "UEBA data shows 3 accounts with anomalous access patterns. Correlating with authentication logs to identify mimikatz or LSASS dump activity.", evidence: JSON.stringify(["LSASS memory access by non-system process", "WDigest registry modification detected"]), startedAt: new Date(Date.now() - 1800000) },
-  { agentId: 4, incidentId: 1, type: "detection", title: "Generate Sigma Rules: LockBit 3.0 TTP", description: "Auto-generate Sigma detection rules from identified LockBit 3.0 TTPs for immediate deployment.", status: "awaiting_approval" as const, priority: "critical" as const, humanRequired: true, result: `title: LockBit 3.0 Shadow Copy Deletion\nstatus: stable\ndescription: Detects shadow copy deletion via vssadmin, wmic, or powershell — common LockBit 3.0 pre-encryption step\nlogsource:\n  category: process_creation\n  product: windows\ndetection:\n  selection:\n    CommandLine|contains:\n      - 'vssadmin delete shadows'\n      - 'wmic shadowcopy delete'\n      - 'Get-WmiObject Win32_ShadowCopy'\n  condition: selection\nlevel: critical\ntags:\n  - attack.impact\n  - attack.t1490`, reasoning: "Generated 4 Sigma rules covering shadow copy deletion, MEGA upload behavior, file encryption pattern, and C2 beacon. Rules validated against 90-day log corpus — 0 false positives detected.", evidence: JSON.stringify(["4 Sigma rules generated", "0 false positives on 90d corpus", "Coverage: T1490, T1048, T1486"]) },
-  { agentId: 5, type: "orchestrate", title: "Coordinate Multi-Agent Ransomware Response", description: "Orchestrate ARIA-7, HUNTER-3, FORGE-1, and SIGMACRAFT for comprehensive ransomware response workflow.", status: "in_progress" as const, priority: "critical" as const, humanRequired: false, incidentId: 1, reasoning: "Assigned ARIA-7 to triage (complete), FORGE-1 to malware analysis, HUNTER-3 to hunt for additional compromised hosts, SIGMACRAFT to generate coverage rules. Coordination chain established.", evidence: JSON.stringify(["ARIA-7: triage complete ✓", "FORGE-1: malware analysis in progress", "HUNTER-3: hunting additional hosts", "SIGMACRAFT: rules generated, awaiting approval"]) },
-  { agentId: 3, incidentId: 1, type: "analyze", title: "Malware Analysis: LockBit 3.0 Sample", description: "Perform static and dynamic analysis on recovered LockBit 3.0 binary — extract IOCs, identify C2, generate YARA.", status: "complete" as const, priority: "critical" as const, humanRequired: false, result: "SHA256: a3f4b2c1... | Family: LockBit 3.0 | C2: 185.220.101.47, 91.238.181.99 | Anti-analysis: VM detection, sleep obfuscation | YARA rule generated with 97% confidence", reasoning: "Sandbox execution in isolated environment. Binary analysis revealed LockBit 3.0 with ECDH key exchange, intermittent encryption (skips first 4KB), and hardcoded victim ID.", evidence: JSON.stringify(["6 C2 IPs extracted", "Encryption key pairs identified", "Anti-VM checks: 14 found"]), startedAt: new Date(Date.now() - 7200000), completedAt: new Date(Date.now() - 5400000) },
-];
+let seeding = false;
+let seeded = false;
 
 async function seedIfEmpty() {
-  const existing = await db.select({ id: aiAgentsTable.id }).from(aiAgentsTable).limit(1);
-  if (existing.length === 0) {
+  if (seeded || seeding) return;
+  seeding = true;
+  try {
+    const existing = await db.select({ id: aiAgentsTable.id }).from(aiAgentsTable).limit(1);
+    if (existing.length > 0) { seeded = true; return; }
+
     const agents = await db.insert(aiAgentsTable).values(SEED_AGENTS).returning();
-    const tasksWithIds = SEED_TASKS.map((t, i) => ({ ...t, agentId: agents[t.agentId! - 1]?.id ?? agents[0].id }));
-    await db.insert(agentTasksTable).values(tasksWithIds);
+
+    const SEED_TASKS = [
+      { agentId: agents[0].id, incidentId: 1, type: "triage", title: "Triage: Active Ransomware Deployment", description: "Perform initial triage on active ransomware incident — classify severity, identify affected scope, extract IOCs.", status: "complete" as const, priority: "critical" as const, humanRequired: false, result: "Confirmed LockBit 3.0 variant. 3 nodes compromised. C2 at 185.220.101.47. Exfil via MEGA before encryption. Recommend immediate isolation of PROD-CLUSTER-01/02/03.", reasoning: "File entropy analysis, shadow copy deletion events, and C2 beaconing pattern match LockBit 3.0 TTP. High confidence classification.", evidence: JSON.stringify(["Process tree: vssadmin.exe delete shadows /all", "Network: beacon to 185.220.101.47:443 every 30s", "File: .lockbit extension on 847 files"]), startedAt: new Date(Date.now() - 3600000), completedAt: new Date(Date.now() - 3000000) },
+      { agentId: agents[1].id, incidentId: 3, type: "hunt", title: "Hunt: Credential Harvesting Precursors", description: "Search for credential harvesting activity that may precede the detected lateral movement campaign.", status: "in_progress" as const, priority: "high" as const, humanRequired: false, reasoning: "UEBA data shows 3 accounts with anomalous access patterns. Correlating with authentication logs to identify mimikatz or LSASS dump activity.", evidence: JSON.stringify(["LSASS memory access by non-system process", "WDigest registry modification detected"]), startedAt: new Date(Date.now() - 1800000) },
+      { agentId: agents[3].id, incidentId: 1, type: "detection", title: "Generate Sigma Rules: LockBit 3.0 TTP", description: "Auto-generate Sigma detection rules from identified LockBit 3.0 TTPs for immediate deployment.", status: "awaiting_approval" as const, priority: "critical" as const, humanRequired: true, result: "title: LockBit 3.0 Shadow Copy Deletion\nstatus: stable\ndescription: Detects shadow copy deletion via vssadmin — common LockBit 3.0 pre-encryption step\nlogsource:\n  category: process_creation\n  product: windows\ndetection:\n  selection:\n    CommandLine|contains:\n      - 'vssadmin delete shadows'\n      - 'wmic shadowcopy delete'\n  condition: selection\nlevel: critical", reasoning: "Generated 4 Sigma rules covering shadow copy deletion, MEGA upload behavior, file encryption pattern, and C2 beacon. Rules validated against 90-day log corpus — 0 false positives detected.", evidence: JSON.stringify(["4 Sigma rules generated", "0 FPs on 90d corpus", "Coverage: T1490, T1048, T1486"]) },
+      { agentId: agents[4].id, incidentId: 1, type: "orchestrate", title: "Coordinate Multi-Agent Ransomware Response", description: "Orchestrate ARIA-7, HUNTER-3, FORGE-1, and SIGMACRAFT for comprehensive ransomware response workflow.", status: "in_progress" as const, priority: "critical" as const, humanRequired: false, reasoning: "Assigned ARIA-7 to triage (complete), FORGE-1 to malware analysis, HUNTER-3 to hunt for additional compromised hosts, SIGMACRAFT to generate coverage rules.", evidence: JSON.stringify(["ARIA-7: triage complete ✓", "FORGE-1: malware analysis in progress", "HUNTER-3: hunting additional hosts", "SIGMACRAFT: rules generated, awaiting approval"]) },
+      { agentId: agents[2].id, incidentId: 1, type: "analyze", title: "Malware Analysis: LockBit 3.0 Sample", description: "Perform static and dynamic analysis on recovered LockBit 3.0 binary — extract IOCs, identify C2, generate YARA.", status: "complete" as const, priority: "critical" as const, humanRequired: false, result: "SHA256: a3f4b2c1... | Family: LockBit 3.0 | C2: 185.220.101.47, 91.238.181.99 | YARA rule generated with 97% confidence", reasoning: "Sandbox execution in isolated environment. Binary analysis revealed LockBit 3.0 with ECDH key exchange and intermittent encryption.", evidence: JSON.stringify(["6 C2 IPs extracted", "Encryption key pairs identified", "Anti-VM checks: 14 found"]), startedAt: new Date(Date.now() - 7200000), completedAt: new Date(Date.now() - 5400000) },
+    ];
+
+    await db.insert(agentTasksTable).values(SEED_TASKS);
+    seeded = true;
+  } catch (e) {
+    console.error("Agent seed error:", e);
+  } finally {
+    seeding = false;
   }
 }
 
@@ -55,7 +67,10 @@ router.post("/agent-tasks/:id/approve", requireAuth, async (req, res) => {
       .where(eq(agentTasksTable.id, Number(req.params.id)))
       .returning();
     if (!task) { res.status(404).json({ error: "Task not found" }); return; }
-    await db.update(aiAgentsTable).set({ tasksCompleted: db.$count(agentTasksTable, eq(agentTasksTable.agentId, task.agentId!)) ?? 0 }).where(eq(aiAgentsTable.id, task.agentId!));
+    if (task.agentId) {
+      const [agent] = await db.select().from(aiAgentsTable).where(eq(aiAgentsTable.id, task.agentId));
+      if (agent) await db.update(aiAgentsTable).set({ tasksCompleted: agent.tasksCompleted + 1, updatedAt: new Date() }).where(eq(aiAgentsTable.id, task.agentId));
+    }
     res.json({ ...task, evidence: JSON.parse(task.evidence ?? "[]") });
   } catch (err) { req.log.error(err); res.status(500).json({ error: "Internal server error" }); }
 });
@@ -74,10 +89,7 @@ router.post("/agent-tasks/:id/reject", requireAuth, async (req, res) => {
 
 router.post("/ai-agents/:id/dispatch", requireAuth, async (req, res) => {
   const { incidentId, type, title, description } = req.body;
-  if (!type || !title || !description) {
-    res.status(400).json({ error: "type, title, description required" });
-    return;
-  }
+  if (!type || !title || !description) { res.status(400).json({ error: "type, title, description required" }); return; }
   try {
     await seedIfEmpty();
     const [agent] = await db.select().from(aiAgentsTable).where(eq(aiAgentsTable.id, Number(req.params.id)));
@@ -89,21 +101,17 @@ router.post("/ai-agents/:id/dispatch", requireAuth, async (req, res) => {
       startedAt: new Date(), evidence: "[]",
     }).returning();
 
-    await db.update(aiAgentsTable)
-      .set({ status: "investigating", currentTask: title, updatedAt: new Date() })
-      .where(eq(aiAgentsTable.id, agent.id));
+    await db.update(aiAgentsTable).set({ status: "investigating", currentTask: title, updatedAt: new Date() }).where(eq(aiAgentsTable.id, agent.id));
 
-    res.status(201).json({ ...task, agent });
+    res.status(201).json({ ...task, evidence: [], agent });
 
     setImmediate(async () => {
       try {
-        const agentCapabilities = JSON.parse(agent.capabilities);
-        const systemPrompt = `You are ${agent.name}, an AI ${agent.role.replace(/_/g, " ")} agent in a cybersecurity SOC platform. Your specialization: ${agent.specialization}. Your capabilities: ${agentCapabilities.join(", ")}. Respond as this agent — provide concise, technical, actionable analysis. Format: lead with key finding, then evidence, then recommendation. Be specific and professional.`;
-
+        const caps = JSON.parse(agent.capabilities);
         const completion = await openai.chat.completions.create({
           model: agent.model,
           messages: [
-            { role: "system", content: systemPrompt },
+            { role: "system", content: `You are ${agent.name}, an AI ${agent.role.replace(/_/g, " ")} in a cybersecurity SOC. Specialization: ${agent.specialization}. Capabilities: ${caps.join(", ")}. Be concise and technical. Lead with key finding, then evidence, then recommendation.` },
             { role: "user", content: `Task: ${title}\n\nContext: ${description}` },
           ],
           max_tokens: 600,
@@ -113,21 +121,17 @@ router.post("/ai-agents/:id/dispatch", requireAuth, async (req, res) => {
         await db.update(agentTasksTable).set({
           status: type === "detection" ? "awaiting_approval" : "complete",
           result: aiResult,
-          reasoning: `${agent.name} (${agent.role}) analyzed using: ${agentCapabilities.slice(0, 3).join(", ")}`,
+          reasoning: `${agent.name} (${agent.role}) analyzed using: ${caps.slice(0, 3).join(", ")}`,
           completedAt: new Date(),
         }).where(eq(agentTasksTable.id, task.id));
 
-        await db.update(aiAgentsTable).set({
-          status: "online", currentTask: null,
-          tasksCompleted: agent.tasksCompleted + 1,
-          updatedAt: new Date(),
-        }).where(eq(aiAgentsTable.id, agent.id));
+        await db.update(aiAgentsTable).set({ status: "online", currentTask: null, tasksCompleted: agent.tasksCompleted + 1, updatedAt: new Date() }).where(eq(aiAgentsTable.id, agent.id));
 
         await db.insert(agentConversationsTable).values([
           { taskId: task.id, agentId: agent.id, role: "user", content: `${title}\n\n${description}` },
           { taskId: task.id, agentId: agent.id, role: "assistant", content: aiResult },
         ]);
-      } catch (e) {
+      } catch {
         await db.update(agentTasksTable).set({ status: "failed", result: "AI analysis unavailable." }).where(eq(agentTasksTable.id, task.id));
         await db.update(aiAgentsTable).set({ status: "online", currentTask: null, updatedAt: new Date() }).where(eq(aiAgentsTable.id, agent.id));
       }

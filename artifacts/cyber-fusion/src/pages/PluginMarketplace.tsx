@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Plug, Download, Trash2, ToggleLeft, ToggleRight, Search, Star, Users, Shield, Bell, Ticket, Database, Cloud, Key, AlertTriangle, GitBranch, Monitor, RefreshCcw, Loader2, CheckCircle, Package } from "lucide-react";
+import { Plug, Download, Trash2, ToggleLeft, ToggleRight, Search, Star, Users, Shield, Bell, Ticket, Database, Cloud, Key, AlertTriangle, GitBranch, Monitor, RefreshCcw, Loader2, CheckCircle, Package, Save, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -8,11 +8,17 @@ import { useToast } from "@/hooks/use-toast";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
+interface ConfigField {
+  key: string; label: string; type: "text" | "password" | "url" | "email" | "select";
+  placeholder: string; required: boolean; options?: string[];
+}
+interface ConfigSchema { fields: ConfigField[]; }
+
 interface Plugin {
   id: number; name: string; slug: string; description: string; longDesc: string;
   author: string; version: string; category: string; icon: string;
-  capabilities: string[]; isBuiltIn: boolean; isInstalled: boolean; isEnabled: boolean;
-  installCount: number; rating: number; reviewCount: number;
+  capabilities: string[]; configSchema: ConfigSchema; isBuiltIn: boolean;
+  isInstalled: boolean; isEnabled: boolean; installCount: number; rating: number; reviewCount: number;
 }
 
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -43,13 +49,17 @@ const TABS = ["All Plugins", "Installed", "Built-In"] as const;
 
 export default function PluginMarketplace() {
   const { toast } = useToast();
-  const [plugins, setPlugins]     = useState<Plugin[]>([]);
-  const [loading, setLoading]     = useState(true);
-  const [search, setSearch]       = useState("");
-  const [category, setCategory]   = useState("All");
-  const [tab, setTab]             = useState<typeof TABS[number]>("All Plugins");
-  const [selected, setSelected]   = useState<Plugin | null>(null);
-  const [acting, setActing]       = useState<string | null>(null);
+  const [plugins, setPlugins]         = useState<Plugin[]>([]);
+  const [loading, setLoading]         = useState(true);
+  const [search, setSearch]           = useState("");
+  const [category, setCategory]       = useState("All");
+  const [tab, setTab]                 = useState<typeof TABS[number]>("All Plugins");
+  const [selected, setSelected]       = useState<Plugin | null>(null);
+  const [acting, setActing]           = useState<string | null>(null);
+  const [configValues, setConfigValues] = useState<Record<string, string>>({});
+  const [saving, setSaving]           = useState(false);
+  const [showPasswords, setShowPasswords] = useState<Record<string, boolean>>({});
+  const [configSaved, setConfigSaved] = useState<string | null>(null);
 
   const fetchPlugins = useCallback(async () => {
     setLoading(true);
@@ -63,12 +73,19 @@ export default function PluginMarketplace() {
 
   useEffect(() => { fetchPlugins(); }, [fetchPlugins]);
 
+  const selectPlugin = (plugin: Plugin) => {
+    setSelected(plugin);
+    setConfigValues({});
+    setConfigSaved(null);
+    setShowPasswords({});
+  };
+
   const install = async (slug: string) => {
     setActing(slug);
     try {
       const res = await fetch(`${BASE}/api/plugins/${slug}/install`, { method: "POST", credentials: "include" });
       const updated: Plugin = await res.json();
-      setPlugins(ps => ps.map(p => p.slug === slug ? { ...p, ...updated, capabilities: updated.capabilities } : p));
+      setPlugins(ps => ps.map(p => p.slug === slug ? { ...p, ...updated } : p));
       if (selected?.slug === slug) setSelected(s => s ? { ...s, ...updated } : s);
       toast({ title: `${updated.name} installed`, description: "Plugin is now active." });
     } catch { toast({ title: "Install failed", variant: "destructive" }); }
@@ -96,6 +113,20 @@ export default function PluginMarketplace() {
     finally { setActing(null); }
   };
 
+  const saveConfig = async () => {
+    if (!selected) return;
+    setSaving(true);
+    try {
+      await fetch(`${BASE}/api/plugins/${selected.slug}/config`, {
+        method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ config: configValues }),
+      });
+      setConfigSaved(selected.slug);
+      toast({ title: "Configuration saved", description: `${selected.name} settings updated.` });
+    } catch { toast({ title: "Save failed", variant: "destructive" }); }
+    finally { setSaving(false); }
+  };
+
   const filtered = plugins.filter(p => {
     if (tab === "Installed" && !p.isInstalled) return false;
     if (tab === "Built-In" && !p.isBuiltIn) return false;
@@ -105,6 +136,9 @@ export default function PluginMarketplace() {
   });
 
   const installedCount = plugins.filter(p => p.isInstalled).length;
+  const configFields: ConfigField[] = selected?.configSchema?.fields ?? [];
+  const hasRequiredFields = configFields.some(f => f.required);
+  const allRequiredFilled = configFields.filter(f => f.required).every(f => configValues[f.key]?.trim());
 
   return (
     <div className="flex flex-col h-full min-h-0 bg-background">
@@ -175,7 +209,7 @@ export default function PluginMarketplace() {
                 const isActing = acting === plugin.slug;
                 return (
                   <div key={plugin.id}
-                    onClick={() => setSelected(plugin)}
+                    onClick={() => selectPlugin(plugin)}
                     className={cn("border bg-card p-4 cursor-pointer hover:border-primary/50 transition-all group",
                       selected?.slug === plugin.slug ? "border-primary bg-primary/5" : "border-border",
                       plugin.isInstalled && "border-l-2 border-l-primary")}>
@@ -239,7 +273,8 @@ export default function PluginMarketplace() {
           const isActing = acting === selected.slug;
           return (
             <div className="w-80 border-l border-border flex flex-col shrink-0 overflow-y-auto">
-              <div className="p-4 border-b border-border">
+              {/* Header */}
+              <div className="p-4 border-b border-border shrink-0">
                 <div className="flex items-center gap-3 mb-3">
                   <div className={cn("flex h-12 w-12 shrink-0 items-center justify-center border",
                     selected.isInstalled ? "border-primary/40 bg-primary/10" : "border-border bg-muted/30")}>
@@ -257,6 +292,7 @@ export default function PluginMarketplace() {
                     {CATEGORY_LABELS[selected.category]}
                   </Badge>
                   {selected.isBuiltIn && <Badge variant="outline" className="text-xs text-primary border-primary/40">BUILT-IN</Badge>}
+                  {selected.isInstalled && <Badge variant="outline" className="text-xs text-emerald-400 border-emerald-500/40">INSTALLED</Badge>}
                 </div>
 
                 <div className="flex gap-2">
@@ -282,12 +318,14 @@ export default function PluginMarketplace() {
                 </div>
               </div>
 
-              <div className="p-4 space-y-4">
+              <div className="p-4 space-y-5 flex-1">
+                {/* About */}
                 <div>
                   <div className="text-xs font-mono text-muted-foreground mb-1">ABOUT</div>
                   <p className="text-xs text-muted-foreground leading-relaxed">{selected.longDesc || selected.description}</p>
                 </div>
 
+                {/* Capabilities */}
                 <div>
                   <div className="text-xs font-mono text-muted-foreground mb-2">CAPABILITIES</div>
                   <div className="space-y-1">
@@ -300,6 +338,62 @@ export default function PluginMarketplace() {
                   </div>
                 </div>
 
+                {/* Configuration */}
+                {configFields.length > 0 && (
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="text-xs font-mono text-muted-foreground">CONFIGURATION</div>
+                      {configSaved === selected.slug && (
+                        <div className="flex items-center gap-1 text-xs font-mono text-emerald-400">
+                          <CheckCircle className="h-3 w-3" />SAVED
+                        </div>
+                      )}
+                    </div>
+                    <div className="space-y-3 bg-muted/10 border border-border p-3">
+                      {configFields.map(field => (
+                        <div key={field.key}>
+                          <label className="block text-xs font-mono text-muted-foreground mb-1">
+                            {field.label}{field.required && <span className="text-red-400 ml-1">*</span>}
+                          </label>
+                          {field.type === "select" && field.options ? (
+                            <select
+                              value={configValues[field.key] ?? ""}
+                              onChange={e => setConfigValues(v => ({ ...v, [field.key]: e.target.value }))}
+                              className="w-full h-7 text-xs font-mono bg-background border border-border px-2 text-foreground focus:border-primary outline-none">
+                              <option value="">Select...</option>
+                              {field.options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                            </select>
+                          ) : (
+                            <div className="relative">
+                              <Input
+                                type={field.type === "password" && !showPasswords[field.key] ? "password" : field.type === "password" ? "text" : field.type}
+                                value={configValues[field.key] ?? ""}
+                                onChange={e => setConfigValues(v => ({ ...v, [field.key]: e.target.value }))}
+                                placeholder={field.placeholder}
+                                className="h-7 text-xs font-mono pr-8"
+                              />
+                              {field.type === "password" && (
+                                <button
+                                  type="button"
+                                  onClick={() => setShowPasswords(p => ({ ...p, [field.key]: !p[field.key] }))}
+                                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                                  {showPasswords[field.key] ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                      <Button size="sm" onClick={saveConfig} disabled={saving || (hasRequiredFields && !allRequiredFilled)}
+                        className="w-full font-mono text-xs bg-primary/20 text-primary border border-primary/40 hover:bg-primary/30 mt-1">
+                        {saving ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Save className="h-3 w-3 mr-1" />}
+                        SAVE CONFIGURATION
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Stats */}
                 <div className="grid grid-cols-2 gap-3">
                   {[
                     { label: "RATING", value: `${(selected.rating / 10).toFixed(1)} / 5.0` },

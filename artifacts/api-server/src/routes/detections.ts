@@ -39,7 +39,7 @@ router.get("/detections/summary", async (req, res) => {
 });
 
 router.post("/detections", async (req, res) => {
-  const { name, description, type, ruleContent, severity, mitreTechnique, mitreTactic, tags, author } = req.body;
+  const { name, description, type, ruleContent, severity, mitreTechnique, mitreTactic, tags, author, status } = req.body;
   if (!name || !description || !type || !ruleContent || !severity) {
     res.status(400).json({ error: "name, description, type, ruleContent, severity required" });
     return;
@@ -47,7 +47,7 @@ router.post("/detections", async (req, res) => {
   try {
     const [detection] = await db
       .insert(detectionsTable)
-      .values({ name, description, type, ruleContent, severity, mitreTechnique, mitreTactic, tags, author })
+      .values({ name, description, type, ruleContent, severity, mitreTechnique, mitreTactic, tags, author, ...(status ? { status } : {}) })
       .returning();
 
     await db.insert(activityTable).values({

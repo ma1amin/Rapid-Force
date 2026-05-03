@@ -1,0 +1,17 @@
+Sigma Rules (Log Detection)
+SigmaHQ Main Repository: https://github.com/SigmaHQ/sigma
+Sigma Rules Folder: https://github.com/SigmaHQ/sigma/tree/master/rules
+Official SigmaHQ Website: https://sigmahq.io
+Nextron Valhalla Sigma Feed: https://valhalla.nextron-systems.com/
+
+YARA Rules (File/Memory Analysis)
+YARA-Forge Project: https://yarahq.github.io/
+YARA-Forge Rule Packages: https://github.com/YARAHQ/yara-forge/releases
+Yara-Rules/rules Community Repo: https://github.com/yara-rules/rules
+Florian Roth’s Signature Base: https://github.com/Neo23x0/signature-base
+Awesome-YARA Curated List: https://github.com/InQuest/awesome-yara
+JPCERT/CC YARA Repository: https://github.com/JPCERTCC/jpcert-yara
+
+Hybrid Platforms
+VALHALLA Rules Database: https://www.nextron-systems.com/valhalla
+YARAify Scan Engine: https://yaraify.abuse.ch

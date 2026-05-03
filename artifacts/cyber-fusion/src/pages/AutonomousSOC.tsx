@@ -21,6 +21,10 @@ interface Briefing {
   generatedAt: string; content: string;
 }
 
+interface Incident {
+  id: number; title: string; severity: string; status: string;
+}
+
 const TYPE_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   triage: Brain, isolate: Shield, block_ip: Shield, quarantine: Shield,
   investigate: Target, notify: Activity, close: CheckCircle, escalate: AlertTriangle,
@@ -35,6 +39,11 @@ const TYPE_COLORS: Record<string, string> = {
   notify: "text-cyan-400 border-cyan-500/40 bg-cyan-500/10",
   close: "text-emerald-400 border-emerald-500/40 bg-emerald-500/10",
   escalate: "text-yellow-400 border-yellow-500/40 bg-yellow-500/10",
+};
+
+const SEV_COLORS: Record<string, string> = {
+  critical: "text-red-400", high: "text-orange-400", medium: "text-yellow-400",
+  low: "text-emerald-400", info: "text-blue-400",
 };
 
 const STATUS_CONFIG: Record<string, { color: string; label: string; icon: React.ComponentType<{ className?: string }> }> = {
@@ -64,6 +73,7 @@ export default function AutonomousSOC() {
   const { toast } = useToast();
   const [actions, setActions]     = useState<AutonomousAction[]>([]);
   const [briefings, setBriefings] = useState<Briefing[]>([]);
+  const [incidents, setIncidents] = useState<Incident[]>([]);
   const [loading, setLoading]     = useState(true);
   const [selected, setSelected]   = useState<AutonomousAction | null>(null);
   const [acting, setActing]       = useState<number | null>(null);
@@ -79,13 +89,18 @@ export default function AutonomousSOC() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [aRes, bRes] = await Promise.all([
+      const [aRes, bRes, iRes] = await Promise.all([
         fetch(`${BASE}/api/autonomous/actions`, { credentials: "include" }),
         fetch(`${BASE}/api/autonomous/briefings`, { credentials: "include" }),
+        fetch(`${BASE}/api/incidents`, { credentials: "include" }),
       ]);
-      const [aData, bData] = await Promise.all([aRes.json(), bRes.json()]);
+      const [aData, bData, iData] = await Promise.all([aRes.json(), bRes.json(), iRes.json()]);
       setActions(Array.isArray(aData) ? aData : []);
       setBriefings(Array.isArray(bData) ? bData : []);
+      if (Array.isArray(iData)) {
+        setIncidents(iData.slice(0, 20));
+        if (iData.length > 0 && !triageIncident) setTriageIncident(String(iData[0].id));
+      }
     } catch { toast({ title: "Failed to load", variant: "destructive" }); }
     finally { setLoading(false); }
   }, []);
@@ -180,6 +195,8 @@ export default function AutonomousSOC() {
   const completeCount = actions.filter(a => ["complete", "approved"].includes(a.status)).length;
   const autoRate = actions.length > 0 ? Math.round((actions.filter(a => !a.requiresApproval).length / actions.length) * 100) : 0;
 
+  const selectedIncident = incidents.find(i => String(i.id) === triageIncident);
+
   return (
     <div className="flex flex-col h-full min-h-0 bg-background">
       {/* Header */}
@@ -237,21 +254,41 @@ export default function AutonomousSOC() {
           <div className="flex-1 flex flex-col min-w-0">
             {/* Triage Panel */}
             <div className="border-b border-border p-3 bg-muted/10 shrink-0">
-              <div className="flex items-center gap-2">
-                <Brain className="h-4 w-4 text-primary" />
-                <span className="text-xs font-mono text-primary">AI AUTONOMOUS TRIAGE</span>
+              <div className="flex items-center gap-2 flex-wrap">
+                <Brain className="h-4 w-4 text-primary shrink-0" />
+                <span className="text-xs font-mono text-primary shrink-0">AI AUTONOMOUS TRIAGE</span>
                 <div className="flex-1" />
                 <Select value={triageIncident} onValueChange={setTriageIncident}>
-                  <SelectTrigger className="w-48 h-7 font-mono text-xs"><SelectValue placeholder="Select incident..." /></SelectTrigger>
-                  <SelectContent>
-                    {[1,2,3,4,5,6,7,8].map(i => <SelectItem key={i} value={String(i)} className="font-mono text-xs">INC-{i}</SelectItem>)}
+                  <SelectTrigger className="w-64 h-7 font-mono text-xs">
+                    <SelectValue placeholder={incidents.length === 0 ? "Loading incidents..." : "Select incident..."} />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-60">
+                    {incidents.length === 0 ? (
+                      <SelectItem value="_none" disabled className="font-mono text-xs text-muted-foreground">No incidents found</SelectItem>
+                    ) : incidents.map(inc => (
+                      <SelectItem key={inc.id} value={String(inc.id)} className="font-mono text-xs">
+                        <span className="flex items-center gap-2">
+                          <span className={cn("text-xs font-bold", SEV_COLORS[inc.severity] ?? "text-muted-foreground")}>
+                            [{inc.severity.toUpperCase()}]
+                          </span>
+                          <span>INC-{inc.id}: {inc.title.length > 28 ? inc.title.slice(0, 28) + "…" : inc.title}</span>
+                        </span>
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
                 <Button size="sm" className="h-7 font-mono text-xs bg-primary text-primary-foreground"
-                  onClick={runTriage} disabled={triaging || !triageIncident}>
+                  onClick={runTriage} disabled={triaging || !triageIncident || triageIncident === "_none"}>
                   {triaging ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Play className="h-3 w-3 mr-1" />}TRIAGE
                 </Button>
               </div>
+              {selectedIncident && (
+                <div className="mt-2 flex items-center gap-3 text-xs font-mono text-muted-foreground">
+                  <span className={cn("font-bold", SEV_COLORS[selectedIncident.severity])}>{selectedIncident.severity.toUpperCase()}</span>
+                  <span>{selectedIncident.title}</span>
+                  <Badge variant="outline" className="text-xs text-muted-foreground border-border ml-auto">{selectedIncident.status.toUpperCase()}</Badge>
+                </div>
+              )}
               {triageOutput && (
                 <div className="mt-2 bg-muted/30 border border-border p-2 text-xs font-mono text-muted-foreground max-h-32 overflow-y-auto whitespace-pre-wrap leading-relaxed">
                   {triageOutput}
@@ -305,7 +342,11 @@ export default function AutonomousSOC() {
                         <div className="flex items-center gap-3 text-xs font-mono text-muted-foreground mb-2 flex-wrap">
                           <span className={RISK_COLORS[action.riskLevel]}>{action.riskLevel.toUpperCase()} RISK</span>
                           <span>CONFIDENCE: {Math.round(action.confidence * 100)}%</span>
-                          {action.incidentTitle && <span className="truncate">INC-{action.incidentId}: {action.incidentTitle}</span>}
+                          {action.incidentId && (
+                            <span className="truncate">
+                              INC-{action.incidentId}{action.incidentTitle ? `: ${action.incidentTitle}` : ""}
+                            </span>
+                          )}
                           <span>{timeAgo(action.createdAt)}</span>
                         </div>
 
