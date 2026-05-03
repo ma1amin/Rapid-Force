@@ -1,60 +1,84 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useListIncidents, useGetIncidentsSummary, useCreateIncident, useUpdateIncident, useListAgents, getListIncidentsQueryKey, getGetIncidentsSummaryQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Siren, PlusCircle, AlertTriangle, Search, Shield, CheckCircle2, Activity, Clock, ChevronDown, ChevronUp } from "lucide-react";
+import {
+  Siren, PlusCircle, AlertTriangle, Search, Shield, CheckCircle2, Activity,
+  Clock, ChevronDown, ChevronUp, Link2, Zap, Server, Globe, Archive, Cpu, Bell, Loader2,
+} from "lucide-react";
+
+const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 const REFETCH_MS = 30_000;
 
 const severityColor: Record<string, string> = {
   critical: "text-destructive border-destructive/40 bg-destructive/10",
-  high: "text-accent border-accent/40 bg-accent/10",
-  medium: "text-primary border-primary/40 bg-primary/10",
-  low: "text-muted-foreground border-border",
+  high:     "text-accent border-accent/40 bg-accent/10",
+  medium:   "text-primary border-primary/40 bg-primary/10",
+  low:      "text-muted-foreground border-border",
 };
 
 const statusConfig: Record<string, { icon: React.ReactNode; color: string; label: string }> = {
-  open: { icon: <AlertTriangle className="h-3 w-3" />, color: "text-destructive", label: "OPEN" },
-  investigating: { icon: <Search className="h-3 w-3" />, color: "text-accent", label: "INVESTIGATING" },
-  contained: { icon: <Shield className="h-3 w-3" />, color: "text-primary", label: "CONTAINED" },
-  eradicated: { icon: <CheckCircle2 className="h-3 w-3" />, color: "text-primary/70", label: "ERADICATED" },
-  closed: { icon: <CheckCircle2 className="h-3 w-3" />, color: "text-muted-foreground", label: "CLOSED" },
+  open:          { icon: <AlertTriangle  className="h-3 w-3" />, color: "text-destructive",      label: "OPEN"          },
+  investigating: { icon: <Search         className="h-3 w-3" />, color: "text-accent",            label: "INVESTIGATING" },
+  contained:     { icon: <Shield         className="h-3 w-3" />, color: "text-primary",           label: "CONTAINED"     },
+  eradicated:    { icon: <CheckCircle2   className="h-3 w-3" />, color: "text-primary/70",        label: "ERADICATED"    },
+  closed:        { icon: <CheckCircle2   className="h-3 w-3" />, color: "text-muted-foreground",  label: "CLOSED"        },
 };
 
 const typeLabel: Record<string, string> = {
-  malware: "MALWARE",
-  ransomware: "RANSOMWARE",
-  phishing: "PHISHING",
-  insider_threat: "INSIDER THREAT",
-  data_breach: "DATA BREACH",
-  supply_chain: "SUPPLY CHAIN",
-  ddos: "DDoS",
-  zero_day: "ZERO-DAY",
-  lateral_movement: "LATERAL MOVEMENT",
+  malware:              "MALWARE",
+  ransomware:           "RANSOMWARE",
+  phishing:             "PHISHING",
+  insider_threat:       "INSIDER THREAT",
+  data_breach:          "DATA BREACH",
+  supply_chain:         "SUPPLY CHAIN",
+  ddos:                 "DDoS",
+  zero_day:             "ZERO-DAY",
+  lateral_movement:     "LATERAL MOVEMENT",
   privilege_escalation: "PRIV ESC",
-  other: "OTHER",
+  other:                "OTHER",
 };
+
+const ACTION_CONFIG = [
+  { key: "isolate",   icon: <Server  className="h-3.5 w-3.5" />, label: "ISOLATE HOST",  color: "border-destructive/50 text-destructive hover:bg-destructive/10" },
+  { key: "block_ip",  icon: <Globe   className="h-3.5 w-3.5" />, label: "BLOCK IP",      color: "border-accent/50 text-accent hover:bg-accent/10"               },
+  { key: "quarantine",icon: <Archive className="h-3.5 w-3.5" />, label: "QUARANTINE",    color: "border-accent/50 text-accent hover:bg-accent/10"               },
+  { key: "snapshot",  icon: <Cpu     className="h-3.5 w-3.5" />, label: "SNAPSHOT",      color: "border-primary/50 text-primary hover:bg-primary/10"            },
+  { key: "notify",    icon: <Bell    className="h-3.5 w-3.5" />, label: "NOTIFY TEAM",   color: "border-border text-muted-foreground hover:text-foreground hover:border-muted-foreground" },
+];
 
 function timeAgo(date: string) {
   const diff = Math.floor((Date.now() - new Date(date).getTime()) / 1000);
-  if (diff < 60) return `${diff}s ago`;
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 60)    return `${diff}s ago`;
+  if (diff < 3600)  return `${Math.floor(diff / 60)}m ago`;
   if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
   return `${Math.floor(diff / 86400)}d ago`;
 }
 
+interface CorrelationResult {
+  relatedIncidents: { id: number; title: string; severity: string; status: string; type: string; matchReasons: string[]; createdAt: string }[];
+  relatedThreats:   { id: number; name: string; severity: string; status: string; type: string }[];
+  totalCorrelations: number;
+}
+
 export default function Incidents() {
   const qc = useQueryClient();
-  const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [expandedId, setExpandedId]     = useState<number | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>("");
-  const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({
+  const [showForm, setShowForm]         = useState(false);
+  const [form, setForm]                 = useState({
     title: "", description: "", severity: "high", type: "other",
-    affectedSystems: "", iocIndicators: "", attackVector: "", mitreTechnique: "", assignedAgentId: ""
+    affectedSystems: "", iocIndicators: "", attackVector: "", mitreTechnique: "", assignedAgentId: "",
   });
 
+  const [correlations, setCorrelations]         = useState<Record<number, CorrelationResult>>({});
+  const [correlationsLoading, setCorrelLoading] = useState<Record<number, boolean>>({});
+  const [actionPending, setActionPending]       = useState<Record<string, boolean>>({});
+  const [actionFeedback, setActionFeedback]     = useState<Record<number, string>>({});
+
   const { data: incidents, isLoading } = useListIncidents({ query: { refetchInterval: REFETCH_MS } });
-  const { data: summary } = useGetIncidentsSummary({ query: { refetchInterval: REFETCH_MS } });
-  const { data: agents } = useListAgents({ query: { refetchInterval: REFETCH_MS } });
+  const { data: summary }              = useGetIncidentsSummary({ query: { refetchInterval: REFETCH_MS } });
+  const { data: agents }               = useListAgents({ query: { refetchInterval: REFETCH_MS } });
 
   const createIncident = useCreateIncident({
     mutation: {
@@ -75,6 +99,44 @@ export default function Incidents() {
       },
     },
   });
+
+  const fetchCorrelations = useCallback(async (id: number) => {
+    if (correlations[id] || correlationsLoading[id]) return;
+    setCorrelLoading(p => ({ ...p, [id]: true }));
+    try {
+      const r = await fetch(`${BASE}/api/incidents/${id}/correlations`, { credentials: "include" });
+      if (r.ok) {
+        const data = await r.json();
+        setCorrelations(p => ({ ...p, [id]: data }));
+      }
+    } finally {
+      setCorrelLoading(p => ({ ...p, [id]: false }));
+    }
+  }, [correlations, correlationsLoading]);
+
+  const executeAction = useCallback(async (incidentId: number, action: string) => {
+    const key = `${incidentId}-${action}`;
+    setActionPending(p => ({ ...p, [key]: true }));
+    try {
+      const r = await fetch(`${BASE}/api/incidents/${incidentId}/actions`, {
+        method:      "POST",
+        credentials: "include",
+        headers:     { "Content-Type": "application/json" },
+        body:        JSON.stringify({ action }),
+      });
+      if (r.ok) {
+        const data = await r.json();
+        setActionFeedback(p => ({ ...p, [incidentId]: data.log }));
+        qc.invalidateQueries({ queryKey: getListIncidentsQueryKey() });
+      }
+    } finally {
+      setActionPending(p => ({ ...p, [key]: false }));
+    }
+  }, [qc]);
+
+  useEffect(() => {
+    if (expandedId !== null) fetchCorrelations(expandedId);
+  }, [expandedId, fetchCorrelations]);
 
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
@@ -115,13 +177,13 @@ export default function Incidents() {
       {summary && (
         <div className="flex flex-wrap gap-3">
           {[
-            { label: "TOTAL", value: summary.total },
-            { label: "OPEN", value: summary.open, cls: "text-destructive", filter: "open" },
-            { label: "INVESTIGATING", value: summary.investigating, cls: "text-accent", filter: "investigating" },
-            { label: "CONTAINED", value: summary.contained, cls: "text-primary", filter: "contained" },
-            { label: "CLOSED", value: summary.closed, cls: "text-muted-foreground", filter: "closed" },
-            { label: "CRITICAL", value: summary.critical, cls: "text-destructive" },
-            { label: "HIGH", value: summary.high, cls: "text-accent" },
+            { label: "TOTAL",         value: summary.total },
+            { label: "OPEN",          value: summary.open,          cls: "text-destructive", filter: "open"          },
+            { label: "INVESTIGATING", value: summary.investigating,  cls: "text-accent",      filter: "investigating" },
+            { label: "CONTAINED",     value: summary.contained,     cls: "text-primary",     filter: "contained"     },
+            { label: "CLOSED",        value: summary.closed,        cls: "text-muted-foreground", filter: "closed"   },
+            { label: "CRITICAL",      value: summary.critical,      cls: "text-destructive"  },
+            { label: "HIGH",          value: summary.high,          cls: "text-accent"        },
           ].map(({ label, value, cls = "text-foreground", filter }) => (
             <div
               key={label}
@@ -205,10 +267,12 @@ export default function Incidents() {
             </div>
           </div>
           <div className="flex gap-3">
-            <button type="submit" disabled={createIncident.isPending} className="px-4 py-2 bg-destructive text-destructive-foreground text-sm font-mono hover:opacity-90 disabled:opacity-50">
+            <button type="submit" disabled={createIncident.isPending}
+              className="px-4 py-2 bg-destructive text-destructive-foreground text-sm font-mono hover:opacity-90 disabled:opacity-50">
               {createIncident.isPending ? "OPENING..." : "OPEN INCIDENT"}
             </button>
-            <button type="button" onClick={() => setShowForm(false)} className="px-4 py-2 border border-border text-sm font-mono text-muted-foreground hover:text-foreground">
+            <button type="button" onClick={() => setShowForm(false)}
+              className="px-4 py-2 border border-border text-sm font-mono text-muted-foreground hover:text-foreground">
               CANCEL
             </button>
           </div>
@@ -221,9 +285,12 @@ export default function Incidents() {
       ) : (
         <div className="space-y-2">
           {filtered.map((incident) => {
-            const sc = statusConfig[incident.status] ?? statusConfig.open;
+            const sc         = statusConfig[incident.status]  ?? statusConfig.open;
             const isExpanded = expandedId === incident.id;
             const playbookSteps = incident.playbookSteps?.split("\n").filter(Boolean) ?? [];
+            const correl     = correlations[incident.id];
+            const corrLoading = correlationsLoading[incident.id];
+            const feedback   = actionFeedback[incident.id];
 
             return (
               <div key={incident.id} className="bg-card border border-border hover:border-primary/30 transition-colors">
@@ -266,49 +333,73 @@ export default function Incidents() {
                 {/* Expanded detail */}
                 {isExpanded && (
                   <div className="border-t border-border px-4 pb-4 pt-3 space-y-4">
+
+                    {/* IOC / system / vector / mitre */}
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                       {incident.affectedSystems && (
                         <div>
                           <div className="text-xs font-mono text-muted-foreground tracking-widest mb-1.5">AFFECTED SYSTEMS</div>
-                          <div className="text-xs font-mono text-foreground bg-background border border-border px-3 py-2">
-                            {incident.affectedSystems}
-                          </div>
+                          <div className="text-xs font-mono text-foreground bg-background border border-border px-3 py-2">{incident.affectedSystems}</div>
                         </div>
                       )}
                       {incident.iocIndicators && (
                         <div>
                           <div className="text-xs font-mono text-muted-foreground tracking-widest mb-1.5">IOC INDICATORS</div>
-                          <div className="text-xs font-mono text-destructive bg-background border border-border px-3 py-2">
-                            {incident.iocIndicators}
-                          </div>
+                          <div className="text-xs font-mono text-destructive bg-background border border-border px-3 py-2">{incident.iocIndicators}</div>
                         </div>
                       )}
                       {incident.attackVector && (
                         <div>
                           <div className="text-xs font-mono text-muted-foreground tracking-widest mb-1.5">ATTACK VECTOR</div>
-                          <div className="text-xs font-mono text-foreground bg-background border border-border px-3 py-2">
-                            {incident.attackVector}
-                          </div>
+                          <div className="text-xs font-mono text-foreground bg-background border border-border px-3 py-2">{incident.attackVector}</div>
                         </div>
                       )}
                       {incident.mitreTechnique && (
                         <div>
                           <div className="text-xs font-mono text-muted-foreground tracking-widest mb-1.5">MITRE ATT&CK</div>
-                          <div className="text-xs font-mono text-primary bg-background border border-border px-3 py-2">
-                            {incident.mitreTechnique}
-                          </div>
+                          <div className="text-xs font-mono text-primary bg-background border border-border px-3 py-2">{incident.mitreTechnique}</div>
                         </div>
                       )}
                       {incident.containmentActions && (
                         <div className="sm:col-span-2">
-                          <div className="text-xs font-mono text-muted-foreground tracking-widest mb-1.5">CONTAINMENT ACTIONS</div>
-                          <div className="text-xs font-mono text-foreground bg-background border border-border px-3 py-2">
+                          <div className="text-xs font-mono text-muted-foreground tracking-widest mb-1.5">CONTAINMENT LOG</div>
+                          <div className="text-xs font-mono text-foreground bg-background border border-border px-3 py-2 whitespace-pre-wrap max-h-40 overflow-y-auto leading-relaxed">
                             {incident.containmentActions}
                           </div>
                         </div>
                       )}
                     </div>
 
+                    {/* Response actions */}
+                    <div>
+                      <div className="text-xs font-mono text-muted-foreground tracking-widest mb-2 flex items-center gap-2">
+                        <Zap className="h-3 w-3 text-primary" /> AUTOMATED RESPONSE ACTIONS
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {ACTION_CONFIG.map(({ key, icon, label, color }) => {
+                          const pkey    = `${incident.id}-${key}`;
+                          const pending = actionPending[pkey];
+                          return (
+                            <button
+                              key={key}
+                              disabled={pending}
+                              onClick={() => executeAction(incident.id, key)}
+                              className={`flex items-center gap-1.5 text-xs font-mono border px-3 py-1.5 transition-colors disabled:opacity-40 ${color}`}
+                            >
+                              {pending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : icon}
+                              {pending ? "EXECUTING..." : label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      {feedback && (
+                        <div className="mt-2 text-[11px] font-mono text-primary/80 bg-primary/5 border border-primary/20 px-3 py-2 leading-relaxed">
+                          {feedback}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Playbook */}
                     {playbookSteps.length > 0 && (
                       <div>
                         <div className="text-xs font-mono text-muted-foreground tracking-widest mb-2">RESPONSE PLAYBOOK</div>
@@ -322,6 +413,70 @@ export default function Incidents() {
                         </div>
                       </div>
                     )}
+
+                    {/* Correlation panel */}
+                    <div>
+                      <div className="text-xs font-mono text-muted-foreground tracking-widest mb-2 flex items-center gap-2">
+                        <Link2 className="h-3 w-3 text-accent" /> THREAT CORRELATIONS
+                        {corrLoading && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
+                        {correl && <span className="text-accent">{correl.totalCorrelations} found</span>}
+                      </div>
+
+                      {corrLoading && (
+                        <div className="text-xs font-mono text-muted-foreground py-2">Scanning correlation graph...</div>
+                      )}
+
+                      {correl && !corrLoading && (
+                        <div className="space-y-3">
+                          {correl.relatedIncidents.length > 0 && (
+                            <div>
+                              <div className="text-[10px] font-mono text-muted-foreground/70 mb-1.5 tracking-wider">RELATED INCIDENTS</div>
+                              <div className="space-y-1.5">
+                                {correl.relatedIncidents.map(ri => (
+                                  <div key={ri.id} className="flex items-start gap-2 bg-background border border-border px-3 py-2">
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center gap-2 flex-wrap">
+                                        <span className="text-xs font-medium text-foreground truncate">{ri.title}</span>
+                                        <span className={`text-[10px] font-mono border px-1 py-0.5 shrink-0 ${severityColor[ri.severity] ?? "text-muted-foreground border-border"}`}>{ri.severity?.toUpperCase()}</span>
+                                        <span className={`text-[10px] font-mono shrink-0 ${statusConfig[ri.status]?.color ?? "text-muted-foreground"}`}>{statusConfig[ri.status]?.label ?? ri.status}</span>
+                                      </div>
+                                      <div className="flex flex-wrap gap-1 mt-1">
+                                        {ri.matchReasons.map((r, i) => (
+                                          <span key={i} className="text-[10px] font-mono bg-primary/5 border border-primary/20 text-primary px-1.5 py-0.5">{r}</span>
+                                        ))}
+                                      </div>
+                                    </div>
+                                    <span className="text-[10px] font-mono text-muted-foreground shrink-0">{timeAgo(ri.createdAt)}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {correl.relatedThreats.length > 0 && (
+                            <div>
+                              <div className="text-[10px] font-mono text-muted-foreground/70 mb-1.5 tracking-wider">CORRELATED THREATS</div>
+                              <div className="flex flex-wrap gap-2">
+                                {correl.relatedThreats.map(t => (
+                                  <div key={t.id} className="flex items-center gap-2 bg-background border border-border px-3 py-1.5">
+                                    <span className={`text-[10px] font-mono border px-1 py-0.5 ${severityColor[t.severity] ?? "text-muted-foreground border-border"}`}>{t.severity?.toUpperCase()}</span>
+                                    <span className="text-xs font-mono text-foreground">{t.name}</span>
+                                    <span className="text-[10px] font-mono text-muted-foreground">{t.status?.toUpperCase()}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {correl.totalCorrelations === 0 && (
+                            <div className="text-xs font-mono text-muted-foreground py-2">
+                              No correlations found for this incident pattern.
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
                   </div>
                 )}
               </div>

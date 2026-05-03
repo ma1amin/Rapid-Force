@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import {
   useGetAgentsSummary, useListSprints, useGetThreatsSummary,
   useListActivity, useListMissions, useListIncidents, useGetIncidentsSummary,
@@ -8,11 +9,15 @@ import {
 import {
   Cpu, ShieldAlert, Target, Zap, Activity, CheckCircle2, Clock,
   XCircle, AlertTriangle, Siren, FileCode2, TrendingUp, TrendingDown,
+  Radio, Wifi, WifiOff,
 } from "lucide-react";
 import AgentStatusChart   from "@/components/charts/AgentStatusChart";
 import ThreatSeverityChart from "@/components/charts/ThreatSeverityChart";
 import MissionStatusChart  from "@/components/charts/MissionStatusChart";
 import { cn } from "@/lib/utils";
+import { useLiveEvents } from "@/hooks/useLiveEvents";
+
+const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 const REFETCH_MS = 30_000;
 
@@ -36,6 +41,11 @@ function StatCard({ label, value, sub, accent = false, warn = false, danger = fa
 
 const eventTypeColor: Record<string, string> = {
   threat_detected:     "text-destructive",
+  incident_opened:     "text-destructive",
+  incident_action:     "text-primary",
+  incident_contained:  "text-primary",
+  incident_closed:     "text-muted-foreground",
+  incident_updated:    "text-muted-foreground",
   mission_complete:    "text-primary",
   sprint_started:      "text-accent",
   sprint_complete:     "text-primary",
@@ -61,10 +71,10 @@ const priorityColor: Record<string, string> = {
   low:      "text-muted-foreground",
 };
 
-function timeAgo(date: string) {
-  const diff = Math.floor((Date.now() - new Date(date).getTime()) / 1000);
-  if (diff < 60) return `${diff}s`;
-  if (diff < 3600) return `${Math.floor(diff / 60)}m`;
+function timeAgo(date: string | number) {
+  const diff = Math.floor((Date.now() - (typeof date === "number" ? date : new Date(date).getTime())) / 1000);
+  if (diff < 60)    return `${diff}s`;
+  if (diff < 3600)  return `${Math.floor(diff / 60)}m`;
   if (diff < 86400) return `${Math.floor(diff / 3600)}h`;
   return `${Math.floor(diff / 86400)}d`;
 }
@@ -89,6 +99,21 @@ function SocHealthBar({ score }: { score: number }) {
   );
 }
 
+interface RiskData {
+  riskScore:    number;
+  postureScore: number;
+  level:        string;
+  breakdown:    { factor: string; count: number; impact: number }[];
+  stats:        { openCritical: number; openHigh: number; detectionCoverage: number };
+}
+
+const riskLevelColor: Record<string, string> = {
+  critical: "text-destructive border-destructive/40 bg-destructive/5",
+  high:     "text-accent border-accent/40 bg-accent/5",
+  medium:   "text-amber-400 border-amber-400/40 bg-amber-400/5",
+  low:      "text-primary border-primary/40 bg-primary/5",
+};
+
 export default function Dashboard() {
   const { data: agentsSummary }    = useGetAgentsSummary({}, { query: { queryKey: ["agents-summary"], refetchInterval: REFETCH_MS } });
   const { data: sprints }          = useListSprints({},       { query: { queryKey: ["sprints"],       refetchInterval: REFETCH_MS } });
@@ -111,12 +136,26 @@ export default function Dashboard() {
     { query: { queryKey: ["detections"], refetchInterval: REFETCH_MS } }
   );
 
-  const activeSprint    = sprints?.find(s => s.status === "active");
-  const criticalMissions = missions?.filter(m => m.priority === "critical" && m.status !== "complete") ?? [];
-  const openIncidents   = incidents?.filter(i => i.status === "open" || i.status === "investigating") ?? [];
-  const criticalInc     = incidents?.filter(i => i.severity === "critical" && i.status !== "closed") ?? [];
+  const { events: liveEvents, connected } = useLiveEvents(20);
+  const [riskData, setRiskData]           = useState<RiskData | null>(null);
 
-  // Compute SOC Health Score
+  useEffect(() => {
+    const fetchRisk = async () => {
+      try {
+        const r = await fetch(`${BASE}/api/risk-score`, { credentials: "include" });
+        if (r.ok) setRiskData(await r.json());
+      } catch { /* ignore */ }
+    };
+    fetchRisk();
+    const id = setInterval(fetchRisk, REFETCH_MS);
+    return () => clearInterval(id);
+  }, []);
+
+  const activeSprint     = sprints?.find(s => s.status === "active");
+  const criticalMissions = missions?.filter(m => m.priority === "critical" && m.status !== "complete") ?? [];
+  const openIncidents    = incidents?.filter(i => i.status === "open" || i.status === "investigating") ?? [];
+  const criticalInc      = incidents?.filter(i => i.severity === "critical" && i.status !== "closed") ?? [];
+
   const criticalActive = (threatsSummary?.critical ?? 0) + (threatsSummary?.high ?? 0) / 2;
   const openIncCount   = openIncidents.length;
   const agentUptime    = agentsSummary && agentsSummary.total > 0
@@ -130,10 +169,10 @@ export default function Dashboard() {
   );
   const healthScore = isNaN(rawScore) ? 72 : Math.max(10, rawScore);
 
-  const now = new Date();
+  const now      = new Date();
   const datePart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2,"0")}-${String(now.getDate()).padStart(2,"0")}`;
   const timePart = now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true });
-  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const tz       = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
   const missionCounts = {
     active:   missions?.filter(m => m.status === "active").length   ?? 0,
@@ -155,23 +194,65 @@ export default function Dashboard() {
         <div className="text-right">
           <div className="text-xs font-mono text-muted-foreground">SYSTEM TIME</div>
           <div className="text-xs font-mono text-primary">{datePart} {timePart} ({tz})</div>
-          <div className="text-xs font-mono text-muted-foreground/50 mt-0.5">AUTO-REFRESH 30s</div>
+          <div className={cn("flex items-center justify-end gap-1.5 text-xs font-mono mt-0.5", connected ? "text-primary" : "text-muted-foreground/50")}>
+            {connected ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
+            {connected ? "LIVE STREAM" : "POLLING 30s"}
+          </div>
         </div>
       </div>
 
-      {/* SOC Health Score banner */}
-      <div className={cn("border p-4 space-y-3",
-        healthScore < 40 ? "border-destructive/40 bg-destructive/5" :
-        healthScore < 60 ? "border-amber-500/30 bg-amber-500/5" :
-        "border-border bg-card")}>
-        <SocHealthBar score={healthScore} />
-        {criticalInc.length > 0 && (
-          <div className="flex items-center gap-2 text-xs font-mono text-destructive border-t border-border pt-2">
-            <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-            {criticalInc.length} CRITICAL INCIDENT{criticalInc.length > 1 ? "S" : ""} ACTIVE: {criticalInc.slice(0,2).map(i => i.title).join(", ")}
-            {criticalInc.length > 2 && ` +${criticalInc.length - 2} more`}
+      {/* SOC Health + Risk Score row */}
+      <div className="grid grid-cols-3 gap-4">
+        <div className={cn("col-span-2 border p-4 space-y-3",
+          healthScore < 40 ? "border-destructive/40 bg-destructive/5" :
+          healthScore < 60 ? "border-amber-500/30 bg-amber-500/5" :
+          "border-border bg-card")}>
+          <SocHealthBar score={healthScore} />
+          {criticalInc.length > 0 && (
+            <div className="flex items-center gap-2 text-xs font-mono text-destructive border-t border-border pt-2">
+              <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+              {criticalInc.length} CRITICAL INCIDENT{criticalInc.length > 1 ? "S" : ""} ACTIVE: {criticalInc.slice(0,2).map(i => i.title).join(", ")}
+              {criticalInc.length > 2 && ` +${criticalInc.length - 2} more`}
+            </div>
+          )}
+        </div>
+
+        {/* Risk Score card */}
+        <div className={cn("border p-4 flex flex-col gap-3 bg-card", riskData ? riskLevelColor[riskData.level] : "border-border")}>
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-mono text-muted-foreground tracking-widest">RISK SCORE</span>
+            <ShieldAlert className="h-3.5 w-3.5 opacity-60" />
           </div>
-        )}
+          {riskData ? (
+            <>
+              <div className="flex items-end gap-2">
+                <span className={cn("text-4xl font-black font-mono tabular-nums", riskData.level === "critical" ? "text-destructive" : riskData.level === "high" ? "text-accent" : riskData.level === "medium" ? "text-amber-400" : "text-primary")}>
+                  {riskData.riskScore}
+                </span>
+                <span className="text-xs font-mono text-muted-foreground mb-1">/100</span>
+                <span className={cn("text-xs font-mono font-bold ml-auto border px-1.5 py-0.5", riskLevelColor[riskData.level])}>
+                  {riskData.level.toUpperCase()}
+                </span>
+              </div>
+              <div className="h-1.5 bg-muted/30">
+                <div
+                  className={cn("h-full transition-all duration-700", riskData.level === "critical" ? "bg-destructive" : riskData.level === "high" ? "bg-accent" : riskData.level === "medium" ? "bg-amber-400" : "bg-primary")}
+                  style={{ width: `${riskData.riskScore}%` }}
+                />
+              </div>
+              <div className="space-y-0.5">
+                {riskData.breakdown.slice(0, 3).map(b => (
+                  <div key={b.factor} className="flex items-center justify-between text-[10px] font-mono">
+                    <span className="text-muted-foreground truncate">{b.factor}</span>
+                    <span className="text-foreground shrink-0 ml-2">+{b.impact}</span>
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : (
+            <div className="text-xs font-mono text-muted-foreground">Loading...</div>
+          )}
+        </div>
       </div>
 
       {/* Key metrics — threats */}
@@ -191,7 +272,6 @@ export default function Dashboard() {
 
       {/* Incident + Agent row */}
       <div className="grid grid-cols-2 gap-4">
-        {/* Incident status */}
         <div>
           <div className="text-xs font-mono text-muted-foreground tracking-widest mb-3 flex items-center gap-2">
             <Siren className="h-3 w-3" /> INCIDENT STATUS
@@ -201,7 +281,7 @@ export default function Dashboard() {
               { label: "OPEN",          value: incidentsSummary?.open          ?? 0, danger: true },
               { label: "INVESTIGATING", value: incidentsSummary?.investigating  ?? 0, warn: true  },
               { label: "CONTAINED",     value: incidentsSummary?.contained      ?? 0, accent: true },
-              { label: "ERADICATED",    value: incidentsSummary?.eradicated     ?? 0 },
+              { label: "ERADICATED",    value: (incidentsSummary as any)?.eradicated ?? 0 },
               { label: "CLOSED",        value: incidentsSummary?.closed         ?? 0 },
               { label: "TOTAL",         value: incidentsSummary?.total          ?? 0 },
             ].map(({ label, value, danger, warn, accent }) => (
@@ -215,19 +295,18 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Agent fleet */}
         <div>
           <div className="text-xs font-mono text-muted-foreground tracking-widest mb-3 flex items-center gap-2">
             <Cpu className="h-3 w-3" /> AGENT FLEET
           </div>
           <div className="grid grid-cols-3 gap-2">
             {[
-              { label: "TOTAL",        value: agentsSummary?.total   ?? "—" },
-              { label: "ACTIVE",       value: agentsSummary?.active  ?? "—", accent: true },
-              { label: "IDLE",         value: agentsSummary?.idle    ?? "—" },
-              { label: "STANDBY",      value: agentsSummary?.standby ?? "—", warn: true },
-              { label: "OFFLINE",      value: agentsSummary?.offline ?? "—", danger: true },
-              { label: "MISSIONS",     value: agentsSummary?.totalMissionsCompleted ?? "—", accent: true },
+              { label: "TOTAL",   value: agentsSummary?.total   ?? "—" },
+              { label: "ACTIVE",  value: agentsSummary?.active  ?? "—", accent: true },
+              { label: "IDLE",    value: agentsSummary?.idle    ?? "—" },
+              { label: "STANDBY", value: agentsSummary?.standby ?? "—", warn: true },
+              { label: "OFFLINE", value: agentsSummary?.offline ?? "—", danger: true },
+              { label: "MISSIONS",value: agentsSummary?.totalMissionsCompleted ?? "—", accent: true },
             ].map(({ label, value, accent, warn, danger }) => (
               <div key={label} className="bg-card border border-border p-3 text-center">
                 <div className={cn("text-xl font-bold font-mono", danger ? "text-destructive" : warn ? "text-accent" : accent ? "text-primary" : "text-foreground")}>
@@ -304,10 +383,10 @@ export default function Dashboard() {
           {threatsSummary ? (
             <div className="space-y-3">
               {[
-                { label: "Critical + High threats",       value: threatsSummary.critical + threatsSummary.high, color: "text-destructive", trend: "up"   },
-                { label: "Active (not mitigated)",         value: threatsSummary.active,                        color: "text-accent",      trend: "flat" },
-                { label: "Mitigated this period",          value: threatsSummary.mitigated,                     color: "text-primary",     trend: "down" },
-                { label: "Monitoring (low/medium)",        value: threatsSummary.medium + threatsSummary.low,   color: "text-muted-foreground", trend: "flat" },
+                { label: "Critical + High threats",  value: threatsSummary.critical + threatsSummary.high, color: "text-destructive", trend: "up"   },
+                { label: "Active (not mitigated)",    value: threatsSummary.active,                        color: "text-accent",      trend: "flat" },
+                { label: "Mitigated this period",     value: threatsSummary.mitigated,                     color: "text-primary",     trend: "down" },
+                { label: "Monitoring (low/medium)",   value: threatsSummary.medium + threatsSummary.low,   color: "text-muted-foreground", trend: "flat" },
               ].map(row => (
                 <div key={row.label} className="flex items-center justify-between gap-3">
                   <span className="text-xs font-mono text-muted-foreground flex-1">{row.label}</span>
@@ -323,7 +402,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Open Incidents + Activity */}
+      {/* Open Incidents + Live Activity Feed */}
       <div className="grid grid-cols-2 gap-6">
         <div className="bg-card border border-border p-5">
           <div className="text-xs font-mono text-muted-foreground tracking-widest mb-4 flex items-center gap-2">
@@ -353,16 +432,34 @@ export default function Dashboard() {
           </div>
         </div>
 
+        {/* Live activity feed — SSE events first, then DB activity */}
         <div className="bg-card border border-border p-5">
           <div className="text-xs font-mono text-muted-foreground tracking-widest mb-4 flex items-center gap-2">
-            <TrendingUp className="h-3 w-3" /> RECENT ACTIVITY
+            <Radio className={cn("h-3 w-3", connected ? "text-primary animate-pulse" : "text-muted-foreground/40")} />
+            LIVE EVENT FEED
+            {connected
+              ? <span className="text-primary text-[10px] border border-primary/30 px-1.5 py-0.5 bg-primary/5">LIVE</span>
+              : <span className="text-muted-foreground/50 text-[10px]">CONNECTING...</span>}
           </div>
-          <div className="space-y-2">
-            {activity?.slice(0, 8).map(evt => (
-              <div key={evt.id} className="flex items-start gap-2 py-1.5 border-b border-border last:border-0">
+          <div className="space-y-2 max-h-64 overflow-y-auto">
+            {liveEvents.length > 0 && liveEvents.map(evt => (
+              <div key={evt._id} className="flex items-start gap-2 py-1.5 border-b border-border last:border-0">
+                <span className="text-xs font-mono text-muted-foreground/50 shrink-0 w-6 tabular-nums">{timeAgo(evt.ts)}</span>
+                <span className={cn("text-xs font-mono shrink-0", eventTypeColor[evt.type] ?? "text-primary")}>
+                  [{evt.type.replace(/_/g," ").toUpperCase().slice(0,14)}]
+                </span>
+                <span className="text-xs text-foreground leading-relaxed line-clamp-1">
+                  {typeof evt.data === "object" && evt.data !== null
+                    ? (evt.data as any).title ?? (evt.data as any).message ?? JSON.stringify(evt.data)
+                    : String(evt.data)}
+                </span>
+              </div>
+            ))}
+            {activity?.slice(0, Math.max(0, 8 - liveEvents.length)).map(evt => (
+              <div key={`db-${evt.id}`} className="flex items-start gap-2 py-1.5 border-b border-border last:border-0 opacity-70">
                 <span className="text-xs font-mono text-muted-foreground/50 shrink-0 w-6 tabular-nums">{timeAgo(evt.createdAt)}</span>
                 <span className={cn("text-xs font-mono shrink-0", eventTypeColor[evt.type] ?? "text-muted-foreground")}>
-                  [{evt.type.replace(/_/g," ").toUpperCase().slice(0,12)}]
+                  [{evt.type.replace(/_/g," ").toUpperCase().slice(0,14)}]
                 </span>
                 <span className="text-xs text-foreground leading-relaxed line-clamp-1">{evt.message}</span>
               </div>

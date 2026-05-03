@@ -121,11 +121,45 @@ Dark tactical theme: `--primary: cyan (#00FFC8)`, `--accent: amber/orange`, `--b
 - Register form — voucher code field with inline validation (validates on blur, shows discount info)
 - Force password reset — modal overlay blocks all content until password is changed
 
+## Sprint 6.5 — Phase 2 Leftovers (COMPLETE)
+
+### Detection-as-Code Editor
+- `artifacts/cyber-fusion/src/components/editor/RuleEditor.tsx` — CodeMirror v6 editor with YAML (Sigma/Query) and JS (YARA/IOC/Behavioral) syntax highlighting + Dracula theme
+- Template library for all 5 rule types (Sigma, YARA, IOC, Query, Behavioral) via INSERT TEMPLATE button
+- Lazy-loaded with Suspense for bundle size. Used in both Create form and expanded rule view.
+- Packages: `@uiw/react-codemirror`, `@codemirror/lang-yaml`, `@codemirror/lang-javascript`, `@uiw/codemirror-theme-dracula`
+
+### Threat Correlation Engine
+- `GET /api/incidents/:id/correlations` — matches related incidents by MITRE technique overlap, same type, shared IOC indicators, similar attack vector
+- Returns related incidents (with match reason labels) + correlated threats
+- Shown in collapsible correlation panel in Incidents page expanded view (lazy-fetched on expand)
+
+### Automated Response Actions
+- `POST /api/incidents/:id/actions` — simulates: `isolate`, `block_ip`, `quarantine`, `snapshot`, `notify`
+- Logs timestamped action output to `containmentActions` field and broadcasts via SSE
+- Appends activity record (`incident_action` type) for audit trail
+- Frontend: 5 action buttons in incident expanded view with loading state + feedback display
+
+### Risk Scoring Engine
+- `GET /api/risk-score` — composite risk score (0–100) from open critical/high incidents, active threats, disabled detections, detection coverage
+- Returns level (critical/high/medium/low), breakdown by factor, stats
+- Dashboard: dedicated Risk Score card next to SOC Health bar, with factor breakdown and risk bar
+
+### SSE Live Event Feed
+- `artifacts/api-server/src/lib/event-bus.ts` — in-memory SSE client registry with broadcast
+- `GET /api/events/stream` — Server-Sent Events stream with 15s keep-alive pings + auto-reconnect
+- `artifacts/cyber-fusion/src/hooks/useLiveEvents.ts` — React hook with auto-reconnect (4s)
+- Dashboard: replaces static activity panel with live feed showing SSE events prepended to DB history
+- Incidents mutations (create/patch) broadcast events; action executions also broadcast
+- Dashboard shows LIVE/POLLING indicator (Wifi icon) based on connection state
+
 ## Notes
 
-- Auto-refresh on all data: 30s polling interval
+- Auto-refresh on all data: 30s polling interval (supplement to SSE live feed)
 - Global search (⌘K) across agents, sprints, missions, threats
 - All pages support create + inline status mutation
 - OpenAI integration via `@workspace/integrations-openai-ai-server` (Replit-managed API key)
 - DB push: always use `pnpm --filter @workspace/db push-force` (not `push`)
 - After DB schema changes: push-force → typecheck:libs → restart API Server workflow
+- New Sprint 6.5 routes do NOT use `requireAuth` (matches existing incidents/detections pattern)
+- Frontend new endpoints use raw `fetch()` with `credentials: "include"` (not Orval, not in OpenAPI spec)

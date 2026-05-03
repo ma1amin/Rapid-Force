@@ -18,6 +18,10 @@ import uebaRouter          from "./ueba";
 import playbooksRouter     from "./playbooks";
 import executiveRouter     from "./executive";
 import ewsRouter           from "./ews";
+import eventsRouter        from "./events";
+import correlationsRouter  from "./correlations";
+import actionsRouter       from "./actions";
+import riskRouter          from "./risk";
 
 const router: IRouter = Router();
 
@@ -40,5 +44,9 @@ router.use(uebaRouter);
 router.use(playbooksRouter);
 router.use(executiveRouter);
 router.use(ewsRouter);
+router.use(eventsRouter);
+router.use(correlationsRouter);
+router.use(actionsRouter);
+router.use(riskRouter);
 
 export default router;

@@ -1,58 +1,62 @@
-import { useState } from "react";
+import { useState, lazy, Suspense } from "react";
 import { useListDetections, useGetDetectionsSummary, useCreateDetection, useUpdateDetection, getListDetectionsQueryKey, getGetDetectionsSummaryQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { FileCode2, PlusCircle, Shield, AlertTriangle, Eye, EyeOff, FlaskConical, CheckCircle2, Code2, Network, Brain, FileSearch } from "lucide-react";
+import { FileCode2, PlusCircle, Shield, Eye, EyeOff, FlaskConical, CheckCircle2, Code2, Network, Brain, FileSearch } from "lucide-react";
+
+const RuleEditor = lazy(() => import("@/components/editor/RuleEditor"));
 
 const REFETCH_MS = 30_000;
 
 const typeConfig: Record<string, { icon: React.ReactNode; label: string; color: string }> = {
-  sigma: { icon: <FileCode2 className="h-3 w-3" />, label: "SIGMA", color: "text-primary border-primary/30 bg-primary/10" },
-  yara: { icon: <Code2 className="h-3 w-3" />, label: "YARA", color: "text-accent border-accent/30 bg-accent/10" },
-  query: { icon: <FileSearch className="h-3 w-3" />, label: "QUERY", color: "text-muted-foreground border-border" },
-  ioc: { icon: <Network className="h-3 w-3" />, label: "IOC", color: "text-destructive border-destructive/30 bg-destructive/10" },
-  behavioral: { icon: <Brain className="h-3 w-3" />, label: "BEHAVIORAL", color: "text-accent border-accent/20 bg-accent/5" },
+  sigma:      { icon: <FileCode2   className="h-3 w-3" />, label: "SIGMA",      color: "text-primary border-primary/30 bg-primary/10"         },
+  yara:       { icon: <Code2       className="h-3 w-3" />, label: "YARA",       color: "text-accent border-accent/30 bg-accent/10"             },
+  query:      { icon: <FileSearch  className="h-3 w-3" />, label: "QUERY",      color: "text-muted-foreground border-border"                   },
+  ioc:        { icon: <Network     className="h-3 w-3" />, label: "IOC",        color: "text-destructive border-destructive/30 bg-destructive/10" },
+  behavioral: { icon: <Brain       className="h-3 w-3" />, label: "BEHAVIORAL", color: "text-accent border-accent/20 bg-accent/5"              },
 };
 
 const statusConfig: Record<string, { icon: React.ReactNode; label: string; color: string }> = {
-  active: { icon: <CheckCircle2 className="h-3 w-3" />, label: "ACTIVE", color: "text-primary" },
-  testing: { icon: <FlaskConical className="h-3 w-3" />, label: "TESTING", color: "text-accent" },
-  review: { icon: <Eye className="h-3 w-3" />, label: "REVIEW", color: "text-muted-foreground" },
-  disabled: { icon: <EyeOff className="h-3 w-3" />, label: "DISABLED", color: "text-muted-foreground/50" },
+  active:   { icon: <CheckCircle2  className="h-3 w-3" />, label: "ACTIVE",   color: "text-primary"              },
+  testing:  { icon: <FlaskConical  className="h-3 w-3" />, label: "TESTING",  color: "text-accent"               },
+  review:   { icon: <Eye           className="h-3 w-3" />, label: "REVIEW",   color: "text-muted-foreground"     },
+  disabled: { icon: <EyeOff        className="h-3 w-3" />, label: "DISABLED", color: "text-muted-foreground/50"  },
 };
 
 const severityColor: Record<string, string> = {
-  critical: "text-destructive border-destructive/30 bg-destructive/10",
-  high: "text-accent border-accent/30 bg-accent/10",
-  medium: "text-primary border-primary/30 bg-primary/10",
-  low: "text-muted-foreground border-border",
+  critical:      "text-destructive border-destructive/30 bg-destructive/10",
+  high:          "text-accent border-accent/30 bg-accent/10",
+  medium:        "text-primary border-primary/30 bg-primary/10",
+  low:           "text-muted-foreground border-border",
   informational: "text-muted-foreground/60 border-border",
 };
 
 const mitreColors: Record<string, string> = {
-  "Credential Access": "bg-destructive/10 text-destructive",
-  "Impact": "bg-destructive/10 text-destructive",
-  "Execution": "bg-accent/10 text-accent",
-  "Persistence": "bg-accent/10 text-accent",
-  "Lateral Movement": "bg-primary/10 text-primary",
-  "Command and Control": "bg-primary/10 text-primary",
-  "Exfiltration": "bg-primary/10 text-primary",
-  "Defense Evasion": "bg-muted text-muted-foreground",
+  "Credential Access":    "bg-destructive/10 text-destructive",
+  "Impact":               "bg-destructive/10 text-destructive",
+  "Execution":            "bg-accent/10 text-accent",
+  "Persistence":          "bg-accent/10 text-accent",
+  "Lateral Movement":     "bg-primary/10 text-primary",
+  "Command and Control":  "bg-primary/10 text-primary",
+  "Exfiltration":         "bg-primary/10 text-primary",
+  "Defense Evasion":      "bg-muted text-muted-foreground",
   "Privilege Escalation": "bg-accent/10 text-accent",
-  "Initial Access": "bg-accent/10 text-accent",
+  "Initial Access":       "bg-accent/10 text-accent",
+};
+
+const BLANK_FORM = {
+  name: "", description: "", type: "sigma", severity: "medium",
+  ruleContent: "", mitreTechnique: "", mitreTactic: "", tags: "", author: "",
 };
 
 export default function Detections() {
   const qc = useQueryClient();
-  const [typeFilter, setTypeFilter] = useState<string>("");
-  const [expandedId, setExpandedId] = useState<number | null>(null);
-  const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({
-    name: "", description: "", type: "sigma", severity: "medium",
-    ruleContent: "", mitreTechnique: "", mitreTactic: "", tags: "", author: ""
-  });
+  const [typeFilter, setTypeFilter]   = useState<string>("");
+  const [expandedId, setExpandedId]   = useState<number | null>(null);
+  const [showForm, setShowForm]       = useState(false);
+  const [form, setForm]               = useState({ ...BLANK_FORM });
 
   const { data: detections, isLoading } = useListDetections({ query: { refetchInterval: REFETCH_MS } });
-  const { data: summary } = useGetDetectionsSummary({ query: { refetchInterval: REFETCH_MS } });
+  const { data: summary }               = useGetDetectionsSummary({ query: { refetchInterval: REFETCH_MS } });
 
   const createDetection = useCreateDetection({
     mutation: {
@@ -60,7 +64,7 @@ export default function Detections() {
         qc.invalidateQueries({ queryKey: getListDetectionsQueryKey() });
         qc.invalidateQueries({ queryKey: getGetDetectionsSummaryQueryKey() });
         setShowForm(false);
-        setForm({ name: "", description: "", type: "sigma", severity: "medium", ruleContent: "", mitreTechnique: "", mitreTactic: "", tags: "", author: "" });
+        setForm({ ...BLANK_FORM });
       },
     },
   });
@@ -106,13 +110,13 @@ export default function Detections() {
         <div className="flex flex-wrap gap-3">
           {[
             { label: "TOTAL RULES", value: summary.total },
-            { label: "ACTIVE", value: summary.active, cls: "text-primary" },
-            { label: "TESTING", value: summary.testing, cls: "text-accent" },
-            { label: "REVIEW", value: summary.review, cls: "text-muted-foreground" },
-            { label: "DISABLED", value: summary.disabled, cls: "text-muted-foreground/50" },
-            { label: "SIGMA", value: summary.sigma, cls: "text-primary" },
-            { label: "YARA", value: summary.yara, cls: "text-accent" },
-            { label: "IOC", value: summary.ioc, cls: "text-destructive" },
+            { label: "ACTIVE",  value: summary.active,   cls: "text-primary"           },
+            { label: "TESTING", value: summary.testing,  cls: "text-accent"            },
+            { label: "REVIEW",  value: summary.review,   cls: "text-muted-foreground"  },
+            { label: "DISABLED",value: summary.disabled, cls: "text-muted-foreground/50" },
+            { label: "SIGMA",   value: summary.sigma,    cls: "text-primary"           },
+            { label: "YARA",    value: summary.yara,     cls: "text-accent"            },
+            { label: "IOC",     value: summary.ioc,      cls: "text-destructive"       },
           ].map(({ label, value, cls = "text-foreground" }) => (
             <div key={label} className="bg-card border border-border p-3 flex-1 min-w-20">
               <div className="text-xs font-mono text-muted-foreground">{label}</div>
@@ -141,7 +145,7 @@ export default function Detections() {
         ))}
       </div>
 
-      {/* Create form */}
+      {/* Create form — with CodeMirror editor */}
       {showForm && (
         <form onSubmit={handleCreate} className="bg-card border border-primary p-5 space-y-4">
           <div className="text-xs font-mono text-primary tracking-widest">CREATE DETECTION RULE</div>
@@ -149,7 +153,7 @@ export default function Detections() {
             <div className="sm:col-span-2">
               <label className="block text-xs font-mono text-muted-foreground mb-1">RULE NAME</label>
               <input type="text" className="w-full bg-background border border-border px-3 py-2 text-sm font-mono focus:outline-none focus:border-primary"
-                value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Sigma: ..." required />
+                value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Sigma: Suspicious PowerShell Execution" required />
             </div>
             <div>
               <label className="block text-xs font-mono text-muted-foreground mb-1">TYPE</label>
@@ -181,25 +185,49 @@ export default function Detections() {
             </div>
             <div>
               <label className="block text-xs font-mono text-muted-foreground mb-1">MITRE TACTIC</label>
-              <input type="text" className="w-full bg-background border border-border px-3 py-2 text-sm font-mono focus:outline-none focus:border-primary"
-                value={form.mitreTactic} onChange={e => setForm({ ...form, mitreTactic: e.target.value })} placeholder="Credential Access" />
+              <select className="w-full bg-background border border-border px-3 py-2 text-sm font-mono focus:outline-none focus:border-primary"
+                value={form.mitreTactic} onChange={e => setForm({ ...form, mitreTactic: e.target.value })}>
+                <option value="">— SELECT TACTIC —</option>
+                {Object.keys(mitreColors).map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
             </div>
             <div>
               <label className="block text-xs font-mono text-muted-foreground mb-1">AUTHOR</label>
               <input type="text" className="w-full bg-background border border-border px-3 py-2 text-sm font-mono focus:outline-none focus:border-primary"
                 value={form.author} onChange={e => setForm({ ...form, author: e.target.value })} placeholder="SEC-1" />
             </div>
+            <div>
+              <label className="block text-xs font-mono text-muted-foreground mb-1">TAGS</label>
+              <input type="text" className="w-full bg-background border border-border px-3 py-2 text-sm font-mono focus:outline-none focus:border-primary"
+                value={form.tags} onChange={e => setForm({ ...form, tags: e.target.value })} placeholder="lateral-movement, windows" />
+            </div>
+
+            {/* CodeMirror rule editor */}
             <div className="sm:col-span-3">
               <label className="block text-xs font-mono text-muted-foreground mb-1">RULE CONTENT</label>
-              <textarea className="w-full bg-background border border-border px-3 py-2 text-sm font-mono focus:outline-none focus:border-primary resize-none"
-                rows={6} value={form.ruleContent} onChange={e => setForm({ ...form, ruleContent: e.target.value })} placeholder="Sigma YAML / YARA rule / IOC list..." required />
+              <Suspense fallback={
+                <textarea
+                  className="w-full bg-background border border-border px-3 py-2 text-sm font-mono focus:outline-none focus:border-primary resize-none"
+                  rows={8} value={form.ruleContent}
+                  onChange={e => setForm({ ...form, ruleContent: e.target.value })}
+                  placeholder="Loading editor…"
+                />
+              }>
+                <RuleEditor
+                  value={form.ruleContent}
+                  onChange={v => setForm(f => ({ ...f, ruleContent: v }))}
+                  type={form.type}
+                />
+              </Suspense>
             </div>
           </div>
           <div className="flex gap-3">
-            <button type="submit" disabled={createDetection.isPending} className="px-4 py-2 bg-primary text-primary-foreground text-sm font-mono hover:opacity-90 disabled:opacity-50">
+            <button type="submit" disabled={createDetection.isPending}
+              className="px-4 py-2 bg-primary text-primary-foreground text-sm font-mono hover:opacity-90 disabled:opacity-50">
               {createDetection.isPending ? "DEPLOYING..." : "DEPLOY RULE"}
             </button>
-            <button type="button" onClick={() => setShowForm(false)} className="px-4 py-2 border border-border text-sm font-mono text-muted-foreground hover:text-foreground">
+            <button type="button" onClick={() => setShowForm(false)}
+              className="px-4 py-2 border border-border text-sm font-mono text-muted-foreground hover:text-foreground">
               CANCEL
             </button>
           </div>
@@ -212,9 +240,9 @@ export default function Detections() {
       ) : (
         <div className="space-y-2">
           {filtered.map((detection) => {
-            const tc = typeConfig[detection.type] ?? typeConfig.sigma;
-            const sc = statusConfig[detection.status] ?? statusConfig.testing;
-            const isExpanded = expandedId === detection.id;
+            const tc          = typeConfig[detection.type]   ?? typeConfig.sigma;
+            const sc          = statusConfig[detection.status] ?? statusConfig.testing;
+            const isExpanded  = expandedId === detection.id;
             const tacticColor = mitreColors[detection.mitreTactic ?? ""] ?? "bg-muted text-muted-foreground";
 
             return (
@@ -254,13 +282,24 @@ export default function Detections() {
                   </div>
                 </div>
 
-                {/* Expanded rule content */}
+                {/* Expanded: CodeMirror read-only view */}
                 {isExpanded && (
                   <div className="border-t border-border mx-4 mb-4">
-                    <div className="text-xs font-mono text-muted-foreground mt-3 mb-2 tracking-widest">RULE CONTENT</div>
-                    <pre className="bg-background border border-border p-4 text-xs font-mono text-foreground overflow-x-auto whitespace-pre-wrap leading-relaxed max-h-64 overflow-y-auto">
-                      {detection.ruleContent}
-                    </pre>
+                    <div className="text-xs font-mono text-muted-foreground mt-3 mb-2 tracking-widest flex items-center gap-2">
+                      RULE CONTENT
+                      <span className={`text-[10px] border px-1.5 py-0.5 ${tc.color}`}>{tc.label}</span>
+                    </div>
+                    <Suspense fallback={
+                      <pre className="bg-background border border-border p-4 text-xs font-mono text-foreground overflow-x-auto whitespace-pre-wrap leading-relaxed max-h-64 overflow-y-auto">
+                        {detection.ruleContent}
+                      </pre>
+                    }>
+                      <RuleEditor
+                        value={detection.ruleContent ?? ""}
+                        onChange={() => {}}
+                        type={detection.type}
+                      />
+                    </Suspense>
                     {detection.tags && (
                       <div className="flex flex-wrap gap-1.5 mt-3">
                         {detection.tags.split(",").map(tag => (
