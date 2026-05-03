@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import Sidebar from "./Sidebar";
 import Footer from "./Footer";
 import GlobalSearch from "@/components/search/GlobalSearch";
-import CopilotPanel from "@/components/copilot/CopilotPanel";
+import CopilotModal from "@/components/copilot/CopilotModal";
 import CopilotFAB from "@/components/copilot/CopilotFAB";
 import ImpersonationBanner from "./ImpersonationBanner";
 import AnnouncementBanner from "./AnnouncementBanner";
@@ -10,22 +10,21 @@ import { Search, Sun, Moon } from "lucide-react";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/hooks/useAuth";
 import { useListThreats } from "@workspace/api-client-react";
-import { cn } from "@/lib/utils";
 
 export default function Shell({ children }: { children: React.ReactNode }) {
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [copilotOpen, setCopilotOpen] = useState(false);
-  const { theme, toggle } = useTheme();
-  const { user, exitImpersonation } = useAuth();
+  const [searchOpen, setSearchOpen]     = useState(false);
+  const [copilotOpen, setCopilotOpen]   = useState(false);
+  const { theme, toggle }               = useTheme();
+  const { user, exitImpersonation }     = useAuth();
 
   const { data: threats } = useListThreats();
-  const activeThreats = threats?.filter((t) => t.status === "active").length ?? 0;
-  const criticalThreats = threats?.filter((t) => t.severity === "critical" && t.status === "active").length ?? 0;
+  const activeThreats   = threats?.filter(t => t.status === "active").length ?? 0;
+  const criticalThreats = threats?.filter(t => t.severity === "critical" && t.status === "active").length ?? 0;
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === "k") { e.preventDefault(); setSearchOpen((v) => !v); }
-      if ((e.metaKey || e.ctrlKey) && e.key === "/") { e.preventDefault(); setCopilotOpen((v) => !v); }
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") { e.preventDefault(); setSearchOpen(v => !v); }
+      if ((e.metaKey || e.ctrlKey) && e.key === "/") { e.preventDefault(); setCopilotOpen(v => !v); }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
@@ -33,13 +32,10 @@ export default function Shell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-background">
-      <Sidebar onCopilotOpen={() => setCopilotOpen((v) => !v)} copilotOpen={copilotOpen} />
+      <Sidebar />
 
       <div className="flex flex-1 flex-col overflow-hidden">
-        {/* Impersonation banner */}
         {user?.isImpersonating && <ImpersonationBanner user={user} onExit={exitImpersonation} />}
-
-        {/* Platform announcement banner — not shown during impersonation */}
         {!user?.isImpersonating && <AnnouncementBanner />}
 
         {/* Top header bar */}
@@ -63,22 +59,27 @@ export default function Shell({ children }: { children: React.ReactNode }) {
           </div>
         </div>
 
-        <div className="flex flex-1 overflow-hidden">
-          <main className="flex-1 overflow-y-auto relative">
-            <div className="absolute inset-0 pointer-events-none opacity-[0.03]"
-              style={{ backgroundImage: "linear-gradient(hsl(var(--primary)) 1px, transparent 1px), linear-gradient(90deg, hsl(var(--primary)) 1px, transparent 1px)", backgroundSize: "40px 40px" }} />
-            <div className="relative z-10 flex flex-col min-h-full">
-              <div className="flex-1 p-8">{children}</div>
-              <Footer />
-            </div>
-          </main>
-          <div className={cn("border-l border-border bg-card flex-shrink-0 overflow-hidden transition-all duration-300", copilotOpen ? "w-[420px]" : "w-0")}>
-            {copilotOpen && <CopilotPanel onClose={() => setCopilotOpen(false)} />}
+        <main className="flex-1 overflow-y-auto relative">
+          <div className="absolute inset-0 pointer-events-none opacity-[0.03]"
+            style={{ backgroundImage: "linear-gradient(hsl(var(--primary)) 1px, transparent 1px), linear-gradient(90deg, hsl(var(--primary)) 1px, transparent 1px)", backgroundSize: "40px 40px" }} />
+          <div className="relative z-10 flex flex-col min-h-full">
+            <div className="flex-1 p-8">{children}</div>
+            <Footer />
           </div>
-        </div>
+        </main>
       </div>
 
-      <CopilotFAB isOpen={copilotOpen} onToggle={() => setCopilotOpen((v) => !v)} activeThreats={activeThreats} criticalThreats={criticalThreats} />
+      {/* Floating copilot modal — independent of sidebar navigation */}
+      <CopilotModal isOpen={copilotOpen} onClose={() => setCopilotOpen(false)} />
+
+      {/* FAB — plays open sound, controls the floating modal */}
+      <CopilotFAB
+        isOpen={copilotOpen}
+        onToggle={() => setCopilotOpen(v => !v)}
+        activeThreats={activeThreats}
+        criticalThreats={criticalThreats}
+      />
+
       {searchOpen && <GlobalSearch onClose={() => setSearchOpen(false)} />}
     </div>
   );

@@ -34,16 +34,13 @@ const navigation: NavItem[] = [
   { name: "Predictive EWS",       href: "/early-warning", icon: Radar,          moduleKey: "early_warning"        },
 ];
 
-interface Props {
-  onCopilotOpen?: () => void;
-  copilotOpen?: boolean;
-}
-
-export default function Sidebar({ onCopilotOpen, copilotOpen }: Props) {
+export default function Sidebar() {
   const [location] = useLocation();
   const { isEnabled } = useLicenses();
   const { user, logout } = useAuth();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+
+  const copilotActive = location === "/copilot";
 
   return (
     <div className="flex h-full w-64 flex-col border-r border-border bg-sidebar">
@@ -103,19 +100,19 @@ export default function Sidebar({ onCopilotOpen, copilotOpen }: Props) {
         })}
       </nav>
 
-      {/* AI Copilot shortcut */}
+      {/* AI Copilot — dedicated page link */}
       <div className="px-3 py-2 border-t border-border">
-        <button onClick={onCopilotOpen}
+        <Link href="/copilot"
           className={cn(
             "w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium transition-colors border border-dashed",
-            copilotOpen
+            copilotActive
               ? "border-primary text-primary bg-primary/10"
               : "border-primary/30 text-primary/70 hover:border-primary hover:text-primary hover:bg-primary/5"
           )}>
           <Bot className="h-4 w-4 shrink-0" />
           <span>AI Copilot</span>
           <span className="ml-auto text-xs font-mono text-muted-foreground">⌘/</span>
-        </button>
+        </Link>
       </div>
 
       {/* User section */}

@@ -2,6 +2,7 @@ import Lottie from "lottie-react";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import animationData from "@/assets/copilot-animation.json";
+import { playOpenSound } from "@/utils/sounds";
 
 interface Props {
   isOpen: boolean;
@@ -11,9 +12,14 @@ interface Props {
 }
 
 export default function CopilotFAB({ isOpen, onToggle, activeThreats = 0, criticalThreats = 0 }: Props) {
+  const handleClick = () => {
+    if (!isOpen) playOpenSound();
+    onToggle();
+  };
+
   return (
     <button
-      onClick={onToggle}
+      onClick={handleClick}
       title={isOpen ? "Close AI Copilot" : "Open AI Copilot (⌘/)"}
       className={cn(
         "fixed bottom-6 right-6 z-50 group",
@@ -36,28 +42,15 @@ export default function CopilotFAB({ isOpen, onToggle, activeThreats = 0, critic
         </div>
       ) : (
         <div className="relative w-full h-full flex items-center justify-center">
-          {/* Lottie animation — tinted with CSS filter to match cyan theme */}
           <div
             className="w-14 h-14 rounded-full overflow-hidden"
-            style={{
-              filter:
-                "brightness(0) saturate(100%) invert(76%) sepia(97%) saturate(400%) hue-rotate(115deg) brightness(105%)",
-            }}
+            style={{ filter: "brightness(0) saturate(100%) invert(76%) sepia(97%) saturate(400%) hue-rotate(115deg) brightness(105%)" }}
           >
-            <Lottie
-              animationData={animationData}
-              loop
-              autoplay
-              style={{ width: "100%", height: "100%" }}
-            />
+            <Lottie animationData={animationData} loop autoplay style={{ width: "100%", height: "100%" }} />
           </div>
-
-          {/* Outer ring pulse when there are active threats */}
           {activeThreats > 0 && (
             <span className="absolute inset-0 rounded-full border border-primary/40 animate-ping opacity-30" />
           )}
-
-          {/* Threat badge */}
           {activeThreats > 0 && (
             <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold font-mono shadow-sm border border-background">
               {activeThreats > 9 ? "9+" : activeThreats}
@@ -66,7 +59,6 @@ export default function CopilotFAB({ isOpen, onToggle, activeThreats = 0, critic
         </div>
       )}
 
-      {/* Tooltip label */}
       {!isOpen && (
         <span className="absolute right-full mr-3 whitespace-nowrap bg-card border border-border px-2.5 py-1 text-xs font-mono text-primary opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none shadow-md">
           AI COPILOT

@@ -38,6 +38,7 @@ import Playbooks from "@/pages/Playbooks";
 import BehavioralAnalytics from "@/pages/BehavioralAnalytics";
 import ExecutiveDashboard from "@/pages/ExecutiveDashboard";
 import PredictiveEWS from "@/pages/PredictiveEWS";
+import AICopilot from "@/pages/AICopilot";
 import { type ReactNode, useEffect } from "react";
 
 const queryClient = new QueryClient({
@@ -110,6 +111,7 @@ function Router() {
                 <Route path="/behavioral"><ModuleGate moduleKey="behavioral_analytics"><BehavioralAnalytics /></ModuleGate></Route>
                 <Route path="/executive"><ModuleGate moduleKey="executive"><ExecutiveDashboard /></ModuleGate></Route>
                 <Route path="/early-warning"><ModuleGate moduleKey="early_warning"><PredictiveEWS /></ModuleGate></Route>
+                <Route path="/copilot"><AICopilot /></Route>
                 <Route component={NotFound} />
               </Switch>
             </Shell>
