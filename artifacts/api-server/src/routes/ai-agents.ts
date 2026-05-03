@@ -6,13 +6,36 @@ import { openai } from "@workspace/integrations-openai-ai-server";
 
 const router = Router();
 
-const SEED_AGENTS = [
-  { name: "ARIA-7", role: "soc_analyst", description: "Tier-1/2 SOC analyst specializing in alert triage, initial investigation, and evidence correlation.", specialization: "Alert triage, log analysis, IOC correlation, initial containment", status: "online", tasksCompleted: 1847, successRate: 94.2, model: "gpt-4o", capabilities: JSON.stringify(["Alert classification", "Log correlation", "IOC extraction", "Initial triage", "Evidence gathering", "SIEM query execution"]), avatarColor: "#00FFC8" },
-  { name: "HUNTER-3", role: "threat_hunter", description: "Proactive threat hunter that searches for hidden adversaries using behavioral analytics and threat intelligence.", specialization: "Threat hunting, UEBA correlation, attack path mapping, anomaly investigation", status: "investigating", tasksCompleted: 423, successRate: 87.6, model: "gpt-4o", capabilities: JSON.stringify(["Proactive hunting", "Behavioral anomaly detection", "Attack path reconstruction", "MITRE mapping", "Hypothesis generation"]), currentTask: "Hunting lateral movement precursors in authentication logs", avatarColor: "#FF6B35" },
-  { name: "FORGE-1", role: "malware_analyst", description: "Deep malware analysis agent for static/dynamic analysis, family identification, and IOC extraction.", specialization: "Malware reverse engineering, sandbox analysis, YARA rule generation, C2 identification", status: "idle", tasksCompleted: 312, successRate: 91.8, model: "gpt-4o", capabilities: JSON.stringify(["Static analysis", "Dynamic sandbox analysis", "Family identification", "C2 beacon detection", "YARA rule generation", "IOC extraction"]), avatarColor: "#FF3366" },
-  { name: "SIGMACRAFT", role: "detection_engineer", description: "Automated detection engineer that writes, tests, and deploys Sigma/YARA rules from incident patterns.", specialization: "Sigma rule authoring, detection gap analysis, false positive reduction, MITRE coverage mapping", status: "online", tasksCompleted: 891, successRate: 96.1, model: "gpt-4o", capabilities: JSON.stringify(["Sigma rule generation", "YARA rule writing", "Detection gap analysis", "FP rate optimization", "Coverage mapping", "Rule deployment pipeline"]), avatarColor: "#7C3AED" },
-  { name: "COMMANDER-0", role: "incident_commander", description: "Senior incident commander that orchestrates multi-agent workflows, coordinates response, and makes escalation decisions.", specialization: "Incident orchestration, multi-agent coordination, stakeholder communication, executive reporting", status: "online", tasksCompleted: 156, successRate: 98.7, model: "gpt-4o", capabilities: JSON.stringify(["Multi-agent orchestration", "Response coordination", "Escalation decisions", "Executive communication", "Post-incident review", "SLA enforcement"]), avatarColor: "#F59E0B" },
+type SeedAgent = {
+  name: string;
+  role: "analyst" | "hunter" | "engineer" | "commander";
+  description: string;
+  specialization: string;
+  status: "online" | "investigating" | "idle" | "offline";
+  tasksCompleted: number;
+  successRate: number;
+  model: string;
+  capabilities: string;
+  avatarColor: string;
+  currentTask?: string;
+};
+
+type AgentRole = "soc_analyst" | "threat_hunter" | "detection_engineer" | "incident_commander";
+type AgentStatus = "online" | "investigating" | "idle" | "offline";
+
+const SEED_AGENTS: SeedAgent[] = [
+  { name: "ARIA-7", role: "analyst", description: "Tier-1/2 SOC analyst specializing in alert triage, initial investigation, and evidence correlation.", specialization: "Alert triage, log analysis, IOC correlation, initial containment", status: "online", tasksCompleted: 1847, successRate: 94.2, model: "gpt-4o", capabilities: JSON.stringify(["Alert classification", "Log correlation", "IOC extraction", "Initial triage", "Evidence gathering", "SIEM query execution"]), avatarColor: "#00FFC8" },
+  { name: "HUNTER-3", role: "hunter", description: "Proactive threat hunter that searches for hidden adversaries using behavioral analytics and threat intelligence.", specialization: "Threat hunting, UEBA correlation, attack path mapping, anomaly investigation", status: "investigating", tasksCompleted: 423, successRate: 87.6, model: "gpt-4o", capabilities: JSON.stringify(["Proactive hunting", "Behavioral anomaly detection", "Attack path reconstruction", "MITRE mapping", "Hypothesis generation"]), currentTask: "Hunting lateral movement precursors in authentication logs", avatarColor: "#FF6B35" },
+  { name: "FORGE-1", role: "analyst", description: "Deep malware analysis agent for static/dynamic analysis, family identification, and IOC extraction.", specialization: "Malware reverse engineering, sandbox analysis, YARA rule generation, C2 identification", status: "idle", tasksCompleted: 312, successRate: 91.8, model: "gpt-4o", capabilities: JSON.stringify(["Static analysis", "Dynamic sandbox analysis", "Family identification", "C2 beacon detection", "YARA rule generation", "IOC extraction"]), avatarColor: "#FF3366" },
+  { name: "SIGMACRAFT", role: "engineer", description: "Automated detection engineer that writes, tests, and deploys Sigma/YARA rules from incident patterns.", specialization: "Sigma rule authoring, detection gap analysis, false positive reduction, MITRE coverage mapping", status: "online", tasksCompleted: 891, successRate: 96.1, model: "gpt-4o", capabilities: JSON.stringify(["Sigma rule generation", "YARA rule writing", "Detection gap analysis", "FP rate optimization", "Coverage mapping", "Rule deployment pipeline"]), avatarColor: "#7C3AED" },
+  { name: "COMMANDER-0", role: "commander", description: "Senior incident commander that orchestrates multi-agent workflows, coordinates response, and makes escalation decisions.", specialization: "Incident orchestration, multi-agent coordination, stakeholder communication, executive reporting", status: "online", tasksCompleted: 156, successRate: 98.7, model: "gpt-4o", capabilities: JSON.stringify(["Multi-agent orchestration", "Response coordination", "Escalation decisions", "Executive communication", "Post-incident review", "SLA enforcement"]), avatarColor: "#F59E0B" },
 ];
+
+const normalizedSeedAgents = SEED_AGENTS.map(agent => ({
+  ...agent,
+  role: (agent.role === "analyst" ? "soc_analyst" : agent.role === "hunter" ? "threat_hunter" : agent.role === "engineer" ? "detection_engineer" : "incident_commander") as AgentRole,
+  status: agent.status as AgentStatus,
+}));
 
 let seeding = false;
 let seeded = false;
@@ -24,7 +47,7 @@ async function seedIfEmpty() {
     const existing = await db.select({ id: aiAgentsTable.id }).from(aiAgentsTable).limit(1);
     if (existing.length > 0) { seeded = true; return; }
 
-    const agents = await db.insert(aiAgentsTable).values(SEED_AGENTS).returning();
+    const agents = await db.insert(aiAgentsTable).values(normalizedSeedAgents).returning();
 
     const SEED_TASKS = [
       { agentId: agents[0].id, incidentId: 1, type: "triage", title: "Triage: Active Ransomware Deployment", description: "Perform initial triage on active ransomware incident — classify severity, identify affected scope, extract IOCs.", status: "complete" as const, priority: "critical" as const, humanRequired: false, result: "Confirmed LockBit 3.0 variant. 3 nodes compromised. C2 at 185.220.101.47. Exfil via MEGA before encryption. Recommend immediate isolation of PROD-CLUSTER-01/02/03.", reasoning: "File entropy analysis, shadow copy deletion events, and C2 beaconing pattern match LockBit 3.0 TTP. High confidence classification.", evidence: JSON.stringify(["Process tree: vssadmin.exe delete shadows /all", "Network: beacon to 185.220.101.47:443 every 30s", "File: .lockbit extension on 847 files"]), startedAt: new Date(Date.now() - 3600000), completedAt: new Date(Date.now() - 3000000) },

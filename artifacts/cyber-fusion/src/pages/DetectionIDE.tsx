@@ -202,8 +202,7 @@ export default function DetectionIDE() {
   });
 
   const totalRules = Object.values(board).flat().length;
-  const versionHistoryList = Object.values(board).flat();
-  const versionHistoryItems = (versions.length > 0 ? versions : versionHistoryList.filter(rule => rule.author && rule.author !== "system")) as VersionEntry[];
+  const versionHistoryItems = versions.filter(v => v.author && v.author !== "system");
 
   return (
     <div className="flex flex-col h-full min-h-0 bg-background">
@@ -469,7 +468,7 @@ export default function DetectionIDE() {
           </div>
         </div>
       ) : (
-        <div className="flex flex-col flex-1 min-h-0">
+              <div className="flex flex-col flex-1 min-h-0">
               <div className="flex items-center justify-between px-4 py-2.5 border-b border-border bg-muted/5 shrink-0">
             <div className="text-xs font-mono text-muted-foreground">VERSION HISTORY</div>
             <div className="text-xs font-mono text-muted-foreground">{versionHistoryItems.length} RULES</div>
@@ -479,29 +478,15 @@ export default function DetectionIDE() {
               {versionHistoryItems.map((rule) => (
                 <button
                   key={rule.id}
-                  onClick={() => ("status" in rule ? selectDetection(rule) : undefined)}
+                  onClick={() => setSelectedVersionTab(rule.version)}
                   className={cn("text-left border bg-card p-4 hover:border-primary/50 transition-all",
-                    "status" in rule && selectedVersionTab === rule.name ? "border-primary bg-primary/5" : "border-border")}
+                    selectedVersionTab === rule.version ? "border-primary bg-primary/5" : "border-border")}
                 >
                   <div className="flex items-center gap-2 mb-2">
-                    {"status" in rule && (
-                      <>
-                        <Badge variant="outline" className={cn("text-xs", TYPE_COLORS[rule.type])}>{rule.type.toUpperCase()}</Badge>
-                        <Badge variant="outline" className={cn("text-xs", SEV_COLORS[rule.severity])}>{rule.severity.toUpperCase()}</Badge>
-                      </>
-                    )}
+                    <Badge variant="outline" className="text-xs text-muted-foreground border-border">VERSION</Badge>
                   </div>
-                  {"status" in rule ? (
-                    <>
-                      <div className="text-sm font-medium mb-1">{rule.name}</div>
-                      <div className="text-xs font-mono text-muted-foreground">{rule.version ?? "1.0"} · {rule.author ?? "system"}</div>
-                    </>
-                  ) : (
-                    <>
-                      <div className="text-sm font-medium mb-1">v{rule.version}</div>
-                      <div className="text-xs font-mono text-muted-foreground">{rule.author} · {timeAgo(rule.createdAt)}</div>
-                    </>
-                  )}
+                  <div className="text-sm font-medium mb-1">v{rule.version}</div>
+                  <div className="text-xs font-mono text-muted-foreground">{rule.author} · {timeAgo(rule.createdAt)}</div>
                 </button>
               ))}
             </div>
