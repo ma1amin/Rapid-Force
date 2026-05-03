@@ -193,9 +193,9 @@ export default function PluginMarketplace() {
         </div>
       </div>
 
-      <div className="flex flex-1 min-h-0">
+      <div className="flex flex-1 min-h-0 relative">
         {/* Plugin Grid */}
-        <div className="flex-1 overflow-y-auto p-4">
+        <div className="flex-1 overflow-y-auto p-4 pr-[500px]">
           {loading ? (
             <div className="flex items-center justify-center h-40 text-muted-foreground">
               <Loader2 className="h-5 w-5 animate-spin mr-2" />Loading plugins...
@@ -273,7 +273,7 @@ export default function PluginMarketplace() {
           const isActing = acting === selected.slug;
           const configFields: ConfigField[] = selected.configSchema?.fields ?? [];
           return (
-            <div className="w-[420px] border-l border-border flex flex-col shrink-0 overflow-y-auto bg-background">
+            <div className="fixed left-1/2 top-1/2 z-50 w-[min(92vw,720px)] max-h-[88vh] -translate-x-1/2 -translate-y-1/2 border border-border flex flex-col overflow-y-auto bg-background shadow-2xl">
               {/* Header */}
               <div className="p-4 border-b border-border shrink-0">
                 <div className="flex items-center gap-3 mb-3">
