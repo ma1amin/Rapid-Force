@@ -45,6 +45,11 @@ const UPDATE_REGISTRY = [
   { source: "SigmaHQ", name: "PowerShell Empire Framework Activity", type: "sigma", severity: "high", mitreTechnique: "T1059.001", version: "3.2", publishedAt: "2025-05-01" },
   { source: "JPCERT/CC", name: "APT10 Cloud Hopper Indicators", type: "sigma", severity: "critical", mitreTechnique: "T1078.004", version: "1.1", publishedAt: "2025-05-02" },
   { source: "JPCERT/CC", name: "OceanLotus Web Shell Indicators", type: "yara", severity: "high", mitreTechnique: "T1505.003", version: "1.0", publishedAt: "2025-05-03" },
+  { source: "SigmaHQ", name: "Brute Force SSH Authentication", type: "sigma", severity: "medium", mitreTechnique: "T1110", version: "1.0", publishedAt: "2025-05-03" },
+  { source: "SigmaHQ", name: "PowerShell EncodedCommand Abuse", type: "sigma", severity: "high", mitreTechnique: "T1059.001", version: "1.2", publishedAt: "2025-05-03" },
+  { source: "YARA-Forge", name: "Brute Ratel C4 Loader", type: "yara", severity: "critical", mitreTechnique: "T1071.001", version: "1.1", publishedAt: "2025-05-03" },
+  { source: "signature-base", name: "PlugX RAT Strings", type: "yara", severity: "high", mitreTechnique: "T1105", version: "1.0", publishedAt: "2025-05-03" },
+  { source: "JPCERT/CC", name: "Sophos Malware Delivery Chain", type: "sigma", severity: "high", mitreTechnique: "T1204", version: "1.0", publishedAt: "2025-05-03" },
 ];
 
 async function getOrCreateVersion(detectionId: number) {
