@@ -38,6 +38,10 @@ import Playbooks from "@/pages/Playbooks";
 import BehavioralAnalytics from "@/pages/BehavioralAnalytics";
 import ExecutiveDashboard from "@/pages/ExecutiveDashboard";
 import PredictiveEWS from "@/pages/PredictiveEWS";
+import PluginMarketplace from "@/pages/PluginMarketplace";
+import AIAgentOrchestration from "@/pages/AIAgentOrchestration";
+import DetectionIDE from "@/pages/DetectionIDE";
+import AutonomousSOC from "@/pages/AutonomousSOC";
 import AICopilot from "@/pages/AICopilot";
 import { type ReactNode, useEffect } from "react";
 
@@ -111,6 +115,10 @@ function Router() {
                 <Route path="/behavioral"><ModuleGate moduleKey="behavioral_analytics"><BehavioralAnalytics /></ModuleGate></Route>
                 <Route path="/executive"><ModuleGate moduleKey="executive"><ExecutiveDashboard /></ModuleGate></Route>
                 <Route path="/early-warning"><ModuleGate moduleKey="early_warning"><PredictiveEWS /></ModuleGate></Route>
+                <Route path="/plugins"><ModuleGate moduleKey="plugins"><PluginMarketplace /></ModuleGate></Route>
+                <Route path="/ai-agents"><ModuleGate moduleKey="ai_orchestration"><AIAgentOrchestration /></ModuleGate></Route>
+                <Route path="/detection-ide"><ModuleGate moduleKey="detection_ide"><DetectionIDE /></ModuleGate></Route>
+                <Route path="/autonomous"><ModuleGate moduleKey="autonomous_soc"><AutonomousSOC /></ModuleGate></Route>
                 <Route path="/copilot"><AICopilot /></Route>
                 <Route component={NotFound} />
               </Switch>

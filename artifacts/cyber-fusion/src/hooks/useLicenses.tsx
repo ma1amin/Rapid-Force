@@ -24,6 +24,10 @@ export const ALL_MODULES = [
   { key: "executive",             label: "Executive Dashboard",   minTier: "enterprise"   },
   { key: "early_warning",         label: "Predictive EWS",        minTier: "enterprise"   },
   { key: "license_admin",         label: "License Admin",         minTier: "enterprise"   },
+  { key: "plugins",               label: "Plugin Marketplace",    minTier: "enterprise"   },
+  { key: "ai_orchestration",      label: "AI Agent Orchestration",minTier: "enterprise"   },
+  { key: "detection_ide",         label: "Detection IDE",         minTier: "professional" },
+  { key: "autonomous_soc",        label: "Autonomous SOC",        minTier: "enterprise"   },
 ] as const;
 
 export type ModuleKey = typeof ALL_MODULES[number]["key"];

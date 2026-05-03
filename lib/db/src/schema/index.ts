@@ -14,3 +14,7 @@ export * from "./announcements";
 export * from "./ueba";
 export * from "./playbooks";
 export * from "./ews";
+export * from "./plugins";
+export * from "./ai_agents";
+export * from "./rule_pipeline";
+export * from "./autonomous";

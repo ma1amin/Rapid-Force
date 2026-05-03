@@ -153,6 +153,36 @@ Dark tactical theme: `--primary: cyan (#00FFC8)`, `--accent: amber/orange`, `--b
 - Incidents mutations (create/patch) broadcast events; action executions also broadcast
 - Dashboard shows LIVE/POLLING indicator (Wifi icon) based on connection state
 
+## Phase 4 — Sprints 12–15 (COMPLETE)
+
+### Sprint 12 — Plugin Marketplace (`/plugins`)
+- DB: `plugins` table (slug, category enum, capabilities JSON, installCount, rating, isInstalled, isEnabled)
+- API: `GET /api/plugins`, `POST /api/plugins/:slug/install`, `POST /api/plugins/:slug/uninstall`, `PATCH /api/plugins/:slug/toggle`
+- 12 seeded plugins: Slack, PagerDuty, Jira, ServiceNow, VirusTotal, CrowdStrike, Splunk, AWS Security Hub, Sentinel, Okta, Tenable, TheHive
+- Frontend: grid view with category/search filters, 3-tab view (All/Installed/Built-In), detail side panel, install/toggle/uninstall actions
+- Module gate: `plugins` — Enterprise tier
+
+### Sprint 13 — AI Agent Orchestration (`/ai-agents`)
+- DB: `ai_agents` (role enum, status, successRate, capabilities JSON), `agent_tasks` (status/priority enums, humanRequired, evidence JSON), `agent_conversations`
+- API: `GET /api/ai-agents`, `GET /api/agent-tasks`, `POST /api/ai-agents/:id/dispatch` (real OpenAI call in background), `POST /api/agent-tasks/:id/approve|reject`, `GET /api/agent-tasks/:id/conversation`
+- 5 seeded agents: ARIA-7 (SOC Analyst), HUNTER-3 (Threat Hunter), FORGE-1 (Malware Analyst), SIGMACRAFT (Detection Engineer), COMMANDER-0 (Incident Commander)
+- Frontend: agent roster with status indicators, task queue with filter tabs, approval/reject controls, dispatch dialog (real AI), conversation log panel
+- Module gate: `ai_orchestration` — Enterprise tier
+
+### Sprint 14 — Detection IDE (`/detection-ide`)
+- DB: `rule_versions` (stage enum: draft/review/test/production, isCurrent), `rule_reviews`
+- API: `GET /api/rule-pipeline/board` (kanban by status), `POST /api/rule-pipeline/:id/advance`, `GET /api/rule-pipeline/:id/versions`, `POST /api/rule-pipeline/:id/version`, `GET /api/rule-pipeline/community`
+- 6 community rules seeded (Florian Roth, Rapid Force Labs)
+- Frontend: 4-column Kanban (Draft→Review→Test→Production), CodeMirror rule editor (lazy-loaded), version history dialog, commit dialog, community library tab with import
+- Module gate: `detection_ide` — Professional tier
+
+### Sprint 15 — Autonomous SOC (`/autonomous`)
+- DB: `autonomous_actions` (type/status/riskLevel enums, confidence, requiresApproval), `ai_briefings`
+- API: `GET /api/autonomous/actions`, `POST /api/autonomous/actions/:id/approve|reject`, `POST /api/autonomous/triage/:incidentId` (SSE streaming), `GET /api/autonomous/briefings`, `POST /api/autonomous/briefings/generate` (SSE streaming)
+- 7 seeded autonomous actions (triage, isolate, block_ip, investigate, notify, close)
+- Frontend: stats strip, action feed with filter tabs, AI triage panel (SSE streaming), approval queue with approve/reject, briefings tab with SSE generator + history
+- Module gate: `autonomous_soc` — Enterprise tier
+
 ## Notes
 
 - Auto-refresh on all data: 30s polling interval (supplement to SSE live feed)
@@ -161,5 +191,6 @@ Dark tactical theme: `--primary: cyan (#00FFC8)`, `--accent: amber/orange`, `--b
 - OpenAI integration via `@workspace/integrations-openai-ai-server` (Replit-managed API key)
 - DB push: always use `pnpm --filter @workspace/db push-force` (not `push`)
 - After DB schema changes: push-force → typecheck:libs → restart API Server workflow
-- New Sprint 6.5 routes do NOT use `requireAuth` (matches existing incidents/detections pattern)
-- Frontend new endpoints use raw `fetch()` with `credentials: "include"` (not Orval, not in OpenAPI spec)
+- Phase 4 routes all use `requireAuth` middleware
+- Frontend Phase 4 endpoints use raw `fetch()` with `credentials: "include"` (not Orval)
+- AI endpoints (dispatch, triage, briefing generate) use real OpenAI calls with SSE streaming

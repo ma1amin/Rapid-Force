@@ -22,6 +22,10 @@ import eventsRouter        from "./events";
 import correlationsRouter  from "./correlations";
 import actionsRouter       from "./actions";
 import riskRouter          from "./risk";
+import pluginsRouter       from "./plugins";
+import aiAgentsRouter      from "./ai-agents";
+import rulePipelineRouter  from "./rule-pipeline";
+import autonomousRouter    from "./autonomous";
 
 const router: IRouter = Router();
 
@@ -48,5 +52,9 @@ router.use(eventsRouter);
 router.use(correlationsRouter);
 router.use(actionsRouter);
 router.use(riskRouter);
+router.use(pluginsRouter);
+router.use(aiAgentsRouter);
+router.use(rulePipelineRouter);
+router.use(autonomousRouter);
 
 export default router;

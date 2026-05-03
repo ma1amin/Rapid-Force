@@ -3,6 +3,7 @@ import {
   TerminalSquare, Cpu, Zap, Target, ShieldAlert, ActivitySquare,
   FileCode2, Siren, Bot, Crosshair, Search, Lock, LogOut, ChevronDown,
   ClipboardCheck, BookOpen, BarChart3, Radar, LayoutDashboard,
+  Plug, GitBranch, Code2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useLicenses, type ModuleKey } from "@/hooks/useLicenses";
@@ -32,6 +33,10 @@ const navigation: NavItem[] = [
   { name: "Behavioral Analytics", href: "/behavioral",    icon: BarChart3,      moduleKey: "behavioral_analytics" },
   { name: "Executive Dashboard",  href: "/executive",     icon: LayoutDashboard, moduleKey: "executive"            },
   { name: "Predictive EWS",       href: "/early-warning", icon: Radar,          moduleKey: "early_warning"        },
+  { name: "Plugin Marketplace",   href: "/plugins",       icon: Plug,           moduleKey: "plugins"              },
+  { name: "AI Agent Orchestra.",  href: "/ai-agents",     icon: Bot,            moduleKey: "ai_orchestration"     },
+  { name: "Detection IDE",        href: "/detection-ide", icon: Code2,          moduleKey: "detection_ide"        },
+  { name: "Autonomous SOC",       href: "/autonomous",    icon: GitBranch,      moduleKey: "autonomous_soc"       },
 ];
 
 export default function Sidebar() {
