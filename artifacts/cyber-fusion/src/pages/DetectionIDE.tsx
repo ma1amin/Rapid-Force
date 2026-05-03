@@ -361,7 +361,7 @@ export default function DetectionIDE() {
 
               {/* Version History Section */}
               <div className="border-t border-border shrink-0">
-                <button
+                  <button
                   onClick={() => setVersionsOpen(v => !v)}
                   className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-muted/10 transition-colors">
                   <div className="flex items-center gap-2">
@@ -468,7 +468,7 @@ export default function DetectionIDE() {
         </div>
       ) : (
         <div className="flex flex-col flex-1 min-h-0">
-          <div className="flex items-center justify-between px-4 py-2.5 border-b border-border bg-muted/5 shrink-0">
+              <div className="flex items-center justify-between px-4 py-2.5 border-b border-border bg-muted/5 shrink-0">
             <div className="text-xs font-mono text-muted-foreground">VERSION HISTORY</div>
             <div className="text-xs font-mono text-muted-foreground">{versionHistoryList.length} RULES</div>
           </div>

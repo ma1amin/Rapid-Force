@@ -36,8 +36,8 @@ type Agent = NonNullable<ReturnType<typeof useListAgents>["data"]>[number];
 
 export default function Agents() {
   const qc = useQueryClient();
-  const { data: agents, isLoading } = useListAgents({ query: { refetchInterval: REFETCH_MS } });
-  const { data: summary } = useGetAgentsSummary({ query: { refetchInterval: REFETCH_MS } });
+  const { data: agents, isLoading } = useListAgents({ query: { queryKey: ["agents"], refetchInterval: REFETCH_MS } });
+  const { data: summary } = useGetAgentsSummary({ query: { queryKey: ["agents-summary"], refetchInterval: REFETCH_MS } });
   const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
 
   const createAgent = useCreateAgent({
