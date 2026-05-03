@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, lazy, Suspense } from "react";
-import { Code2, GitBranch, ArrowRight, RefreshCcw, Loader2, Clock, CheckCircle, AlertTriangle, Plus, Play, Upload, Tag, X, Download, ExternalLink, ChevronDown, ChevronUp } from "lucide-react";
+import { Code2, GitBranch, ArrowRight, RefreshCcw, Loader2, Clock, CheckCircle, AlertTriangle, Plus, Play, Upload, Tag, X, Download, ExternalLink, ChevronDown, ChevronUp, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -90,7 +90,10 @@ export default function DetectionIDE() {
   const [selectedVersionTab, setSelectedVersionTab] = useState<string | null>(null);
   const [editedRule, setEditedRule] = useState("");
   const [changelog, setChangelog]   = useState("");
+  const [versionDraft, setVersionDraft] = useState<RuleVersion | null>(null);
   const [committing, setCommitting] = useState(false);
+  const [savingVersion, setSavingVersion] = useState(false);
+  const [deletingVersionId, setDeletingVersionId] = useState<number | null>(null);
   const [importing, setImporting]   = useState(false);
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
   const [checkingUpdates, setCheckingUpdates] = useState(false);
@@ -139,7 +142,53 @@ export default function DetectionIDE() {
     setVersionsOpen(false);
     setTab("Version History");
     setSelectedVersionTab(d.name);
+    setVersionDraft(null);
     await loadVersions(d.id);
+  };
+
+  const editVersion = (version: RuleVersion) => {
+    setVersionDraft(version);
+    setEditedRule(version.ruleContent);
+    setChangelog(version.changelog);
+  };
+
+  const saveVersionEdit = async () => {
+    if (!selected || !versionDraft) return;
+    setSavingVersion(true);
+    try {
+      const res = await fetch(`${BASE}/api/rule-pipeline/${selected.id}/version/${versionDraft.id}`, {
+        method: "PUT",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ruleContent: editedRule, changelog }),
+      });
+      if (!res.ok) throw new Error();
+      await loadVersions(selected.id);
+      setVersionDraft(null);
+      toast({ title: "Version updated" });
+    } catch {
+      toast({ title: "Update failed", variant: "destructive" });
+    } finally {
+      setSavingVersion(false);
+    }
+  };
+
+  const deleteVersion = async (version: RuleVersion) => {
+    if (!selected || version.isCurrent) return;
+    setDeletingVersionId(version.id);
+    try {
+      const res = await fetch(`${BASE}/api/rule-pipeline/${selected.id}/version/${version.id}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error();
+      await loadVersions(selected.id);
+      toast({ title: "Version deleted" });
+    } catch {
+      toast({ title: "Delete failed", variant: "destructive" });
+    } finally {
+      setDeletingVersionId(null);
+    }
   };
 
   const commitVersion = async () => {
@@ -379,7 +428,7 @@ export default function DetectionIDE() {
                     {versions.length === 0 ? (
                       <p className="text-xs text-muted-foreground text-center py-3">No versions yet. Use COMMIT to save a new version.</p>
                     ) : versions.map(v => (
-                      <div key={v.id} className={cn("border p-2.5", v.isCurrent ? "border-primary/40 bg-primary/5" : "border-border bg-muted/10")}>
+                          <div key={v.id} className={cn("border p-2.5", v.isCurrent ? "border-primary/40 bg-primary/5" : "border-border bg-muted/10")}>
                         <div className="flex items-center justify-between mb-1">
                           <span className="text-xs font-mono font-bold text-primary">v{v.version}</span>
                           <div className="flex items-center gap-1.5">
@@ -387,6 +436,16 @@ export default function DetectionIDE() {
                             <Badge variant="outline" className="text-xs text-muted-foreground py-0">{v.stage.toUpperCase()}</Badge>
                           </div>
                         </div>
+                            <div className="flex items-center gap-1 mb-1">
+                              <Button size="sm" variant="outline" className="h-6 text-xs font-mono" onClick={() => editVersion(v)}>
+                                <Pencil className="h-3 w-3 mr-1" />EDIT
+                              </Button>
+                              {!v.isCurrent && (
+                                <Button size="sm" variant="outline" className="h-6 text-xs font-mono text-red-400 border-red-500/30" onClick={() => deleteVersion(v)} disabled={deletingVersionId === v.id}>
+                                  {deletingVersionId === v.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <><Trash2 className="h-3 w-3 mr-1" />DELETE</>}
+                                </Button>
+                              )}
+                            </div>
                         <p className="text-xs text-muted-foreground mb-1">{v.changelog}</p>
                         <div className="text-xs font-mono text-muted-foreground opacity-70">{v.author} · {timeAgo(v.createdAt)}</div>
                       </div>
@@ -513,6 +572,29 @@ export default function DetectionIDE() {
             </Button>
           </div>
         </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!versionDraft} onOpenChange={() => setVersionDraft(null)}>
+        {versionDraft && (
+          <DialogContent className="bg-background border-border max-w-md">
+            <DialogHeader>
+              <DialogTitle className="font-mono text-sm">EDIT VERSION — v{versionDraft.version}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs font-mono text-muted-foreground block mb-1">CHANGELOG</label>
+                <Textarea value={changelog} onChange={e => setChangelog(e.target.value)} className="font-mono text-xs min-h-16 resize-none" />
+              </div>
+              <div>
+                <label className="text-xs font-mono text-muted-foreground block mb-1">RULE CONTENT</label>
+                <Textarea value={editedRule} onChange={e => setEditedRule(e.target.value)} className="font-mono text-xs min-h-32 resize-none" />
+              </div>
+              <Button onClick={saveVersionEdit} disabled={savingVersion} className="w-full font-mono text-xs bg-primary text-primary-foreground">
+                {savingVersion ? <><Loader2 className="h-3 w-3 mr-2 animate-spin" />SAVING...</> : "SAVE VERSION"}
+              </Button>
+            </div>
+          </DialogContent>
+        )}
       </Dialog>
 
       {/* Community Rule Preview Dialog */}

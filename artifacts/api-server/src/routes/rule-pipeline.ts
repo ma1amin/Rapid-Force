@@ -115,6 +115,33 @@ router.post("/rule-pipeline/:id/version", requireAuth, async (req, res) => {
   } catch (err) { req.log.error(err); res.status(500).json({ error: "Internal server error" }); }
 });
 
+router.put("/rule-pipeline/:id/version/:versionId", requireAuth, async (req, res) => {
+  try {
+    const detectionId = Number(req.params.id);
+    const versionId = Number(req.params.versionId);
+    const { ruleContent, changelog } = req.body;
+    const [version] = await db.select().from(ruleVersionsTable).where(and(eq(ruleVersionsTable.id, versionId), eq(ruleVersionsTable.detectionId, detectionId)));
+    if (!version) { res.status(404).json({ error: "Version not found" }); return; }
+    const [updated] = await db.update(ruleVersionsTable).set({
+      ruleContent: ruleContent ?? version.ruleContent,
+      changelog: changelog ?? version.changelog,
+    }).where(eq(ruleVersionsTable.id, versionId)).returning();
+    res.json(updated);
+  } catch (err) { req.log.error(err); res.status(500).json({ error: "Internal server error" }); }
+});
+
+router.delete("/rule-pipeline/:id/version/:versionId", requireAuth, async (req, res) => {
+  try {
+    const detectionId = Number(req.params.id);
+    const versionId = Number(req.params.versionId);
+    const [version] = await db.select().from(ruleVersionsTable).where(and(eq(ruleVersionsTable.id, versionId), eq(ruleVersionsTable.detectionId, detectionId)));
+    if (!version) { res.status(404).json({ error: "Version not found" }); return; }
+    if (version.isCurrent) { res.status(400).json({ error: "Cannot delete current version" }); return; }
+    await db.delete(ruleVersionsTable).where(eq(ruleVersionsTable.id, versionId));
+    res.status(204).send();
+  } catch (err) { req.log.error(err); res.status(500).json({ error: "Internal server error" }); }
+});
+
 router.get("/rule-pipeline/community", requireAuth, (_req, res) => {
   res.json(COMMUNITY_RULES);
 });
