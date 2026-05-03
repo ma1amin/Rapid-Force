@@ -71,10 +71,8 @@ router.patch("/plugins/:slug/toggle", requireAuth, async (req, res) => {
 router.patch("/plugins/:slug/config", requireAuth, async (req, res) => {
   try {
     const { config } = req.body;
-    const [existing] = await db.select().from(pluginsTable).where(eq(pluginsTable.slug, req.params.slug));
-    if (!existing) { res.status(404).json({ error: "Plugin not found" }); return; }
     const [updated] = await db.update(pluginsTable)
-      .set({ updatedAt: new Date(), configSchema: existing.configSchema })
+      .set({ updatedAt: new Date() })
       .where(eq(pluginsTable.slug, req.params.slug)).returning();
     if (!updated) { res.status(404).json({ error: "Plugin not found" }); return; }
     res.json({ ...updated, capabilities: JSON.parse(updated.capabilities), configSchema: JSON.parse(updated.configSchema), savedConfig: config });

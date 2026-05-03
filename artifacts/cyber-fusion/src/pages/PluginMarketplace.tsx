@@ -19,7 +19,6 @@ interface Plugin {
   author: string; version: string; category: string; icon: string;
   capabilities: string[]; configSchema: ConfigSchema; isBuiltIn: boolean;
   isInstalled: boolean; isEnabled: boolean; installCount: number; rating: number; reviewCount: number;
-  savedConfig?: Record<string, string>;
 }
 
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -76,7 +75,7 @@ export default function PluginMarketplace() {
 
   const selectPlugin = (plugin: Plugin) => {
     setSelected(plugin);
-    setConfigValues(plugin.savedConfig ?? Object.fromEntries((plugin.configSchema?.fields ?? []).map(field => [field.key, ""])) as Record<string, string>);
+    setConfigValues(Object.fromEntries((plugin.configSchema?.fields ?? []).map(field => [field.key, ""])) as Record<string, string>);
     setConfigSaved(null);
     setShowPasswords({});
   };
@@ -122,8 +121,6 @@ export default function PluginMarketplace() {
         method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ config: configValues }),
       });
-      setSelected(s => s ? { ...s, savedConfig: configValues } : s);
-      setPlugins(ps => ps.map(p => p.slug === selected.slug ? { ...p, savedConfig: configValues } : p));
       setConfigSaved(selected.slug);
       toast({ title: "Configuration saved", description: `${selected.name} settings updated.` });
     } catch { toast({ title: "Save failed", variant: "destructive" }); }
@@ -196,9 +193,9 @@ export default function PluginMarketplace() {
         </div>
       </div>
 
-      <div className="flex flex-1 min-h-0 relative">
+      <div className="flex flex-1 min-h-0">
         {/* Plugin Grid */}
-        <div className="flex-1 overflow-y-auto p-4 pr-[500px]">
+        <div className="flex-1 overflow-y-auto p-4">
           {loading ? (
             <div className="flex items-center justify-center h-40 text-muted-foreground">
               <Loader2 className="h-5 w-5 animate-spin mr-2" />Loading plugins...
@@ -276,7 +273,7 @@ export default function PluginMarketplace() {
           const isActing = acting === selected.slug;
           const configFields: ConfigField[] = selected.configSchema?.fields ?? [];
           return (
-            <div className="fixed left-1/2 top-1/2 z-50 w-[min(92vw,720px)] max-h-[88vh] -translate-x-1/2 -translate-y-1/2 border border-border flex flex-col overflow-y-auto bg-background shadow-2xl">
+            <div className="w-80 border-l border-border flex flex-col shrink-0 overflow-y-auto">
               {/* Header */}
               <div className="p-4 border-b border-border shrink-0">
                 <div className="flex items-center gap-3 mb-3">
@@ -299,10 +296,7 @@ export default function PluginMarketplace() {
                   {selected.isInstalled && <Badge variant="outline" className="text-xs text-emerald-400 border-emerald-500/40">INSTALLED</Badge>}
                 </div>
 
-                <div className="flex gap-2 flex-wrap">
-                  <Button size="sm" variant="outline" onClick={() => setSelected(null)} className="font-mono text-xs">
-                    CLOSE
-                  </Button>
+                <div className="flex gap-2">
                   {selected.isInstalled ? (
                     <>
                       <Button size="sm" variant="outline" onClick={() => toggle(selected.slug, !selected.isEnabled)}
