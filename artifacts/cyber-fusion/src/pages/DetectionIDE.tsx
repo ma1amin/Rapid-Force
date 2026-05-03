@@ -72,7 +72,7 @@ function timeAgo(date: string) {
   return `${Math.floor(diff / 86400000)}d ago`;
 }
 
-const TABS = ["Pipeline", "Community Library"] as const;
+const TABS = ["Pipeline", "Community Library", "Version History"] as const;
 
 export default function DetectionIDE() {
   const { toast } = useToast();
@@ -86,6 +86,7 @@ export default function DetectionIDE() {
   const [advancing, setAdvancing] = useState<number | null>(null);
   const [commitOpen, setCommitOpen]   = useState(false);
   const [communityOpen, setCommunityOpen] = useState<CommunityRule | null>(null);
+  const [selectedVersionTab, setSelectedVersionTab] = useState<string | null>(null);
   const [editedRule, setEditedRule] = useState("");
   const [changelog, setChangelog]   = useState("");
   const [committing, setCommitting] = useState(false);
@@ -135,6 +136,8 @@ export default function DetectionIDE() {
     setSelected(d);
     setEditedRule(d.ruleContent);
     setVersionsOpen(false);
+    setTab("Version History");
+    setSelectedVersionTab(d.name);
     await loadVersions(d.id);
   };
 
@@ -198,6 +201,7 @@ export default function DetectionIDE() {
   });
 
   const totalRules = Object.values(board).flat().length;
+  const versionHistoryList = Object.values(board).flat();
 
   return (
     <div className="flex flex-col h-full min-h-0 bg-background">
@@ -392,7 +396,7 @@ export default function DetectionIDE() {
             </div>
           )}
         </div>
-      ) : (
+      ) : tab === "Community Library" ? (
         /* Community Library */
         <div className="flex flex-col flex-1 min-h-0">
           {/* Library Filter Bar */}
@@ -460,6 +464,32 @@ export default function DetectionIDE() {
                 ))}
               </div>
             )}
+          </div>
+        </div>
+      ) : (
+        <div className="flex flex-col flex-1 min-h-0">
+          <div className="flex items-center justify-between px-4 py-2.5 border-b border-border bg-muted/5 shrink-0">
+            <div className="text-xs font-mono text-muted-foreground">VERSION HISTORY</div>
+            <div className="text-xs font-mono text-muted-foreground">{versionHistoryList.length} RULES</div>
+          </div>
+          <div className="flex-1 overflow-y-auto p-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+              {versionHistoryList.map(rule => (
+                <button
+                  key={rule.id}
+                  onClick={() => selectDetection(rule)}
+                  className={cn("text-left border bg-card p-4 hover:border-primary/50 transition-all",
+                    selectedVersionTab === rule.name ? "border-primary bg-primary/5" : "border-border")}
+                >
+                  <div className="flex items-center gap-2 mb-2">
+                    <Badge variant="outline" className={cn("text-xs", TYPE_COLORS[rule.type])}>{rule.type.toUpperCase()}</Badge>
+                    <Badge variant="outline" className={cn("text-xs", SEV_COLORS[rule.severity])}>{rule.severity.toUpperCase()}</Badge>
+                  </div>
+                  <div className="text-sm font-medium mb-1">{rule.name}</div>
+                  <div className="text-xs font-mono text-muted-foreground">{rule.version ?? "1.0"} · {rule.author ?? "system"}</div>
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       )}
