@@ -75,7 +75,7 @@ export default function PluginMarketplace() {
 
   const selectPlugin = (plugin: Plugin) => {
     setSelected(plugin);
-    setConfigValues({});
+    setConfigValues(Object.fromEntries((plugin.configSchema?.fields ?? []).map(field => [field.key, ""])) as Record<string, string>);
     setConfigSaved(null);
     setShowPasswords({});
   };
@@ -271,6 +271,7 @@ export default function PluginMarketplace() {
         {selected && (() => {
           const IconComp = ICON_MAP[selected.icon] ?? Plug;
           const isActing = acting === selected.slug;
+          const configFields: ConfigField[] = selected.configSchema?.fields ?? [];
           return (
             <div className="w-80 border-l border-border flex flex-col shrink-0 overflow-y-auto">
               {/* Header */}
