@@ -276,7 +276,8 @@ export default function AdversarialSim() {
       canvas.height = H * SCALE;
       const ctx = canvas.getContext("2d")!;
       ctx.scale(SCALE, SCALE);
-      ctx.fillStyle = "#0a1628";
+      const cardVal = getComputedStyle(document.documentElement).getPropertyValue("--card").trim();
+      ctx.fillStyle = cardVal ? `hsl(${cardVal})` : "#0a1628";
       ctx.fillRect(0, 0, W, H);
       ctx.drawImage(img, 0, 0, W, H);
       URL.revokeObjectURL(url);
@@ -472,7 +473,7 @@ export default function AdversarialSim() {
                   xmlns="http://www.w3.org/2000/svg"
                   style={{ display: "block" }}
                 >
-                  <rect width="620" height="360" fill="hsl(210, 45%, 7%)" />
+                  <rect width="620" height="360" fill="hsl(var(--card))" />
                   {GRAPH_EDGES.map((e, i) => {
                     const f = GRAPH_NODES.find(n => n.id === e.from)!;
                     const t = GRAPH_NODES.find(n => n.id === e.to)!;
