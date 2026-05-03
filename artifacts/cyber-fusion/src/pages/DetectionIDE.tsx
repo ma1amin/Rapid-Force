@@ -100,6 +100,7 @@ export default function DetectionIDE() {
   const [updateOpen, setUpdateOpen] = useState(false);
   const [communityFilter, setCommunityFilter] = useState<"all" | "sigma" | "yara">("all");
   const [communitySource, setCommunitySource] = useState("All");
+  const [pipelineSelectedId, setPipelineSelectedId] = useState<number | null>(null);
 
   const loadBoard = useCallback(async () => {
     setLoading(true);
@@ -138,9 +139,9 @@ export default function DetectionIDE() {
 
   const selectDetection = async (d: Detection) => {
     setSelected(d);
+    setPipelineSelectedId(d.id);
     setEditedRule(d.ruleContent);
     setVersionsOpen(false);
-    setTab("Version History");
     setSelectedVersionTab(d.name);
     setVersionDraft(null);
     await loadVersions(d.id);
@@ -165,6 +166,7 @@ export default function DetectionIDE() {
       if (!res.ok) throw new Error();
       await loadVersions(selected.id);
       setVersionDraft(null);
+      setSelected({ ...selected, ruleContent: editedRule, version: selected.version });
       toast({ title: "Version updated" });
     } catch {
       toast({ title: "Update failed", variant: "destructive" });
@@ -183,6 +185,7 @@ export default function DetectionIDE() {
       });
       if (!res.ok) throw new Error();
       await loadVersions(selected.id);
+      setVersionDraft(null);
       toast({ title: "Version deleted" });
     } catch {
       toast({ title: "Delete failed", variant: "destructive" });
@@ -252,6 +255,7 @@ export default function DetectionIDE() {
 
   const totalRules = Object.values(board).flat().length;
   const versionHistoryItems = versions.filter(v => v.author && v.author !== "system");
+  const activePipeline = tab === "Pipeline";
 
   return (
     <div className="flex flex-col h-full min-h-0 bg-background">
@@ -321,7 +325,7 @@ export default function DetectionIDE() {
                           <div key={d.id}
                             onClick={() => selectDetection(d)}
                             className={cn("border bg-card p-3 cursor-pointer hover:border-primary/50 transition-all",
-                              selected?.id === d.id ? "border-primary bg-primary/5" : "border-border")}>
+                              pipelineSelectedId === d.id ? "border-primary bg-primary/5" : "border-border")}>
                             <div className="text-xs font-medium mb-1.5 leading-tight">{d.name}</div>
                             <div className="flex flex-wrap gap-1 mb-2">
                               <Badge variant="outline" className={cn("text-xs", TYPE_COLORS[d.type])}>{d.type.toUpperCase()}</Badge>
@@ -355,7 +359,8 @@ export default function DetectionIDE() {
 
           {/* Rule Detail Panel */}
           {selected && (
-            <div className="w-96 border-l border-border flex flex-col shrink-0">
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+              <div className="w-full max-w-4xl h-[85vh] border border-border bg-background flex overflow-hidden shadow-2xl">
               {/* Panel Header */}
               <div className="flex items-center justify-between px-4 py-2.5 border-b border-border bg-muted/10 shrink-0">
                 <div className="flex items-center gap-2">
@@ -392,7 +397,7 @@ export default function DetectionIDE() {
               </div>
 
               {/* Editor */}
-              <div className="flex-1 overflow-hidden min-h-0" style={{ minHeight: 180, maxHeight: 300 }}>
+              <div className="flex-1 overflow-hidden min-h-0" style={{ minHeight: 180 }}>
                 <Suspense fallback={<div className="flex items-center justify-center h-32 text-muted-foreground text-xs"><Loader2 className="h-4 w-4 animate-spin mr-2" />Loading editor...</div>}>
                   <RuleEditor type={selected.type} value={editedRule} onChange={setEditedRule} />
                 </Suspense>
@@ -454,6 +459,7 @@ export default function DetectionIDE() {
                 )}
               </div>
             </div>
+          </div>
           )}
         </div>
       ) : tab === "Community Library" ? (
@@ -537,7 +543,15 @@ export default function DetectionIDE() {
               {versionHistoryItems.map((rule) => (
                 <button
                   key={rule.id}
-                  onClick={() => setSelectedVersionTab(rule.version)}
+                  onClick={() => {
+                    const match = versions.find(v => v.version === rule.version) ?? null;
+                    setSelectedVersionTab(rule.version);
+                    if (match) {
+                      setSelected({ id: match.detectionId, name: selected?.name ?? "Rule", type: selected?.type ?? "sigma", severity: selected?.severity ?? "medium", status: selected?.status ?? "disabled", ruleContent: match.ruleContent, mitreTechnique: selected?.mitreTechnique ?? null, mitreTactic: selected?.mitreTactic ?? null, tags: selected?.tags ?? null, author: match.author, version: match.version, description: selected?.description ?? "" });
+                      setEditedRule(match.ruleContent);
+                      setChangelog(match.changelog);
+                    }
+                  }}
                   className={cn("text-left border bg-card p-4 hover:border-primary/50 transition-all",
                     selectedVersionTab === rule.version ? "border-primary bg-primary/5" : "border-border")}
                 >
