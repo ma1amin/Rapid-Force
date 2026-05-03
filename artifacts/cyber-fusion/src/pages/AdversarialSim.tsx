@@ -225,29 +225,66 @@ export default function AdversarialSim() {
 
   const stopScan = () => { abortRef.current = true; setIsScanning(false); };
 
+  function filenameSafeTarget() {
+    return (target || "scan")
+      .replace(/[^a-zA-Z0-9_-]/g, "_")
+      .replace(/_+/g, "_")
+      .replace(/^_+|_+$/g, "")
+      .toLowerCase() || "scan";
+  }
+
+  function fileDateStamp() {
+    const now = new Date();
+    return `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}-${String(now.getHours()).padStart(2, "0")}${String(now.getMinutes()).padStart(2, "0")}`;
+  }
+
   function exportGraphPng() {
     const svg = graphRef.current;
     if (!svg) return;
+
+    // Resolve CSS custom properties so they render correctly on canvas
+    const rootStyle = getComputedStyle(document.documentElement);
+    const resolveVar = (name: string) => rootStyle.getPropertyValue(name).trim();
+
     const serializer = new XMLSerializer();
-    const svgStr = serializer.serializeToString(svg);
+    let svgStr = serializer.serializeToString(svg);
+
+    // Replace every CSS var reference with its actual computed value
+    const cssVars: Record<string, string> = {
+      "--primary":           resolveVar("--primary"),
+      "--card":              resolveVar("--card"),
+      "--foreground":        resolveVar("--foreground"),
+      "--muted-foreground":  resolveVar("--muted-foreground"),
+      "--destructive":       resolveVar("--destructive"),
+      "--accent":            resolveVar("--accent"),
+      "--border":            resolveVar("--border"),
+    };
+    for (const [key, val] of Object.entries(cssVars)) {
+      if (val) {
+        const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        svgStr = svgStr.replace(new RegExp(`hsl\\(var\\(${escaped}\\)\\)`, "g"), `hsl(${val})`);
+      }
+    }
+
     const svgBlob = new Blob([svgStr], { type: "image/svg+xml;charset=utf-8" });
     const url = URL.createObjectURL(svgBlob);
     const img = new window.Image();
     img.onload = () => {
+      const W = 620, H = 360, SCALE = 2;
       const canvas = document.createElement("canvas");
-      canvas.width = 620 * 2;
-      canvas.height = 360 * 2;
+      canvas.width = W * SCALE;
+      canvas.height = H * SCALE;
       const ctx = canvas.getContext("2d")!;
-      ctx.scale(2, 2);
-      ctx.fillStyle = "hsl(210, 45%, 7%)";
-      ctx.fillRect(0, 0, 620, 360);
-      ctx.drawImage(img, 0, 0, 620, 360);
+      ctx.scale(SCALE, SCALE);
+      ctx.fillStyle = "#0a1628";
+      ctx.fillRect(0, 0, W, H);
+      ctx.drawImage(img, 0, 0, W, H);
       URL.revokeObjectURL(url);
       canvas.toBlob(blob => {
         if (!blob) return;
         const a = document.createElement("a");
         a.href = URL.createObjectURL(blob);
-        a.download = `attack-graph-${target || "scan"}-${Date.now()}.png`;
+        a.download = `attack-graph-${filenameSafeTarget()}-${fileDateStamp()}.png`;
         a.click();
         URL.revokeObjectURL(a.href);
         toast({ title: "Graph exported", description: "Attack graph saved as PNG." });
@@ -261,7 +298,7 @@ export default function AdversarialSim() {
     const blob = new Blob([report], { type: "text/plain" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = `adversarial-report-${target || "scan"}-${Date.now()}.txt`;
+    a.download = `attack-report-${filenameSafeTarget()}-${fileDateStamp()}.txt`;
     a.click();
     URL.revokeObjectURL(a.href);
     toast({ title: "Report exported", description: "Assessment report downloaded." });
