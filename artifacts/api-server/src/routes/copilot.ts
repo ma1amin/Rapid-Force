@@ -160,9 +160,8 @@ router.post("/copilot/analyze", async (req: Request, res: Response) => {
 
   try {
     const stream = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: "gpt-5-mini",
       max_completion_tokens: 800,
-      temperature: 0.3,
       messages: trimmed,
       stream: true,
     });
