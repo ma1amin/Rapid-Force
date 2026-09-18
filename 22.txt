@@ -1,0 +1,7 @@
+Email: demo@rapidforce.io
+Password: Admin1234!
+
+And the admin portal with:
+
+Email: admin@rapidforce.io
+Password: RapidForce@Admin2024
