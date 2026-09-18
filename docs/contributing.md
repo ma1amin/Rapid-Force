@@ -2,7 +2,7 @@
 
 ## Overview
 
-Thank you for your interest in contributing to Rapid Force Cyber Fusion! This document provides guidelines and instructions for contributing to the project.
+This document provides guidelines and instructions for internal development of Rapid Force Cyber Fusion. This is a private project developed by Arabc0n.
 
 ## Code of Conduct
 
@@ -44,17 +44,11 @@ Before contributing, ensure you have:
 
 ### First-Time Setup
 
-1. **Fork the repository**
+1. **Clone the repository**
 ```bash
-# Fork the repository on GitHub
-# Clone your fork
-git clone https://github.com/your-username/rapid-force-cyber-fusion.git
-cd rapid-force-cyber-fusion
-```
-
-2. **Add upstream remote**
-```bash
-git remote add upstream https://github.com/original-org/rapid-force-cyber-fusion.git
+# Clone the repository
+git clone https://github.com/ma1amin/Rapid-Force.git
+cd Rapid-Force
 ```
 
 3. **Install dependencies**
@@ -72,20 +66,20 @@ pnpm dev
 
 ## Contribution Workflow
 
-### 1. Find an Issue
+### 1. Find a Task
 
-Look for issues labeled:
-- `good first issue` - Good for first-time contributors
-- `help wanted` - Issues that need community help
-- `enhancement` - Feature requests
-- `bug` - Bug reports
+Check the project management system for:
+- Assigned tasks
+- Feature requests
+- Bug reports
+- Documentation updates
 
 ### 2. Create a Branch
 
 ```bash
-# Ensure you're on the latest develop branch
-git checkout develop
-git pull upstream develop
+# Ensure you're on the latest main branch
+git checkout main
+git pull origin main
 
 # Create a feature branch
 git checkout -b feature/your-feature-name
@@ -185,10 +179,10 @@ git push origin feature/your-feature-name
 3. Select your branch
 4. Fill in the PR template:
    - Description of changes
-   - Related issues
+   - Related tasks
    - Testing performed
    - Screenshots (if applicable)
-5. Request review from maintainers
+5. Request review from team members
 
 ## Pull Request Guidelines
 
@@ -476,7 +470,7 @@ If you need help contributing:
 
 ## License
 
-By contributing, you agree that your contributions will be licensed under the MIT License.
+All contributions to this project become the property of Arabc0n and are subject to the same private license terms as the project itself.
 
 ---
 

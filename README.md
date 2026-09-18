@@ -1,6 +1,6 @@
 # Rapid Force Cyber Fusion
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License: Private](https://img.shields.io/badge/License-Private-red.svg)]
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue)](https://www.typescriptlang.org/)
 [![Node.js](https://img.shields.io/badge/Node.js-18+-green)](https://nodejs.org/)
 [![React](https://img.shields.io/badge/React-18+-61DAFB)](https://reactjs.org/)
@@ -461,7 +461,11 @@ We welcome contributions! Please see [Contributing Guidelines](docs/contributing
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is proprietary and confidential. All rights reserved.
+
+Copyright © 2024 Arabc0n. All rights reserved.
+
+This software is the confidential and proprietary information of Arabc0n.
 
 ## 🆘 Support
 
@@ -527,6 +531,6 @@ For enterprise support, SLA guarantees, and custom development, contact us at:
 
 ---
 
-**Built with ❤️ by the Rapid Force Cyber Fusion Team**
+**Built with ❤️ by Arabc0n**
 
 *Autonomous Cyber Defense for the Modern Enterprise*
